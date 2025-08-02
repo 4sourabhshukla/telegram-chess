@@ -94,11 +94,14 @@ const ChessGame: React.FC = () => {
   const [possibleMoves, setPossibleMoves] = useState<Square[]>([]);
   const [currentTurn, setCurrentTurn] = useState<PieceColor>('w');
   const [gameMode, setGameMode] = useState<'menu' | 'ai' | 'friend' | 'puzzle'>('menu');
-  const [capturedPieces, setCapturedPieces] = useState<{ white: Piece[]; black: Piece[] }>({ white: [], black: [] });
-  const [score, setScore] = useState<{ white: number; black: number }>({ white: 0, black: 0 });
-  const [isInCheck, setIsInCheck] = useState<boolean>(false);
-  const [gameOver, setGameOver] = useState<{ winner: PieceColor | 'draw'; reason: string } | null>(null);
   const [moveHistory, setMoveHistory] = useState<string[]>([]);
+  const [isInCheck, setIsInCheck] = useState(false);
+  const [gameOver, setGameOver] = useState<{ winner: PieceColor | 'draw'; reason: string } | null>(null);
+  const [capturedPieces, setCapturedPieces] = useState<{ white: Piece[], black: Piece[] }>({ 
+    white: [], 
+    black: [] 
+  });
+  const [score, setScore] = useState<{ white: number, black: number }>({ white: 0, black: 0 });
   const [currentPuzzle, setCurrentPuzzle] = useState(0);
   const [puzzleStatus, setPuzzleStatus] = useState<'solving' | 'correct' | 'incorrect'>('solving');
   const [puzzleAttempts, setPuzzleAttempts] = useState(0);
@@ -578,15 +581,23 @@ const ChessGame: React.FC = () => {
 
   // Reset game
   const resetGame = () => {
-    setBoard(createInitialBoard());
+    if (gameMode === 'puzzle') {
+      // Reset current puzzle
+      setBoard(chessPuzzles[currentPuzzle].fen);
+      setPuzzleStatus('solving');
+      setPuzzleAttempts(0);
+    } else {
+      // Reset regular game
+      setBoard(createInitialBoard());
+      setCapturedPieces({ white: [], black: [] });
+      setScore({ white: 0, black: 0 });
+    }
     setCurrentTurn('w');
     setSelectedSquare(null);
     setPossibleMoves([]);
     setMoveHistory([]);
     setIsInCheck(false);
     setGameOver(null);
-    setCapturedPieces({ white: [], black: [] });
-    setScore({ white: 0, black: 0 });
   };
 
   // Start new game
@@ -716,6 +727,167 @@ const ChessGame: React.FC = () => {
             >
               🧩 Puzzles
             </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Puzzle screen
+  if (gameMode === 'puzzle') {
+    const puzzle = chessPuzzles[currentPuzzle];
+    
+    return (
+      <div style={{ 
+        minHeight: '100vh', 
+        backgroundColor: '#34495E', 
+        padding: '20px',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center'
+      }}>
+        <div style={{ 
+          backgroundColor: '#2C3E50', 
+          padding: '20px', 
+          borderRadius: '10px',
+          boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)'
+        }}>
+          {/* Header */}
+          <div style={{ 
+            color: 'white', 
+            marginBottom: '20px', 
+            textAlign: 'center' 
+          }}>
+            <h2 style={{ margin: '0 0 10px 0' }}>
+              🧩 Puzzle {currentPuzzle + 1} of {chessPuzzles.length}
+            </h2>
+            <h3 style={{ margin: '0 0 10px 0', color: '#9B59B6' }}>
+              {puzzle.name}
+            </h3>
+            <div style={{ fontSize: '18px' }}>
+              {puzzle.description}
+            </div>
+          </div>
+          
+          {/* Puzzle Status */}
+          {puzzleStatus === 'correct' && (
+            <div style={{
+              backgroundColor: '#27AE60',
+              color: 'white',
+              padding: '15px',
+              borderRadius: '5px',
+              marginBottom: '20px',
+              textAlign: 'center',
+              fontSize: '20px',
+              fontWeight: 'bold'
+            }}>
+              ✅ Correct! Well done!
+            </div>
+          )}
+          
+          {puzzleStatus === 'incorrect' && (
+            <div style={{
+              backgroundColor: '#E74C3C',
+              color: 'white',
+              padding: '15px',
+              borderRadius: '5px',
+              marginBottom: '20px',
+              textAlign: 'center',
+              fontSize: '18px'
+            }}>
+              ❌ Not quite. Try again!
+            </div>
+          )}
+          
+          {/* Chess board */}
+          <div style={{ 
+            display: 'grid', 
+            gridTemplateColumns: 'repeat(8, 60px)',
+            gap: '0',
+            border: '2px solid #1A252F',
+            boxShadow: '0 2px 10px rgba(0, 0, 0, 0.3)'
+          }}>
+            {board.map((row, rowIndex) =>
+              row.map((_, colIndex) => renderSquare(rowIndex, colIndex))
+            )}
+          </div>
+          
+          {/* Hint */}
+          {puzzleAttempts > 1 && puzzleStatus === 'solving' && (
+            <div style={{
+              marginTop: '20px',
+              padding: '10px',
+              backgroundColor: '#F39C12',
+              color: 'white',
+              borderRadius: '5px',
+              textAlign: 'center'
+            }}>
+              💡 Hint: {puzzle.hint}
+            </div>
+          )}
+          
+          {/* Controls */}
+          <div style={{ marginTop: '20px', textAlign: 'center', display: 'flex', gap: '10px', justifyContent: 'center', flexWrap: 'wrap' }}>
+            <button
+              onClick={previousPuzzle}
+              style={{
+                padding: '10px 20px',
+                fontSize: '16px',
+                backgroundColor: '#95A5A6',
+                color: 'white',
+                border: 'none',
+                borderRadius: '5px',
+                cursor: 'pointer'
+              }}
+            >
+              ← Previous
+            </button>
+            {puzzleStatus !== 'correct' && (
+              <button
+                onClick={resetGame}
+                style={{
+                  padding: '10px 20px',
+                  fontSize: '16px',
+                  backgroundColor: '#3498DB',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '5px',
+                  cursor: 'pointer'
+                }}
+              >
+                Reset Puzzle
+              </button>
+            )}
+            <button
+              onClick={() => setGameMode('menu')}
+              style={{
+                padding: '10px 20px',
+                fontSize: '16px',
+                backgroundColor: '#E74C3C',
+                color: 'white',
+                border: 'none',
+                borderRadius: '5px',
+                cursor: 'pointer'
+              }}
+            >
+              Back to Menu
+            </button>
+            {puzzleStatus === 'correct' && (
+              <button
+                onClick={nextPuzzle}
+                style={{
+                  padding: '10px 20px',
+                  fontSize: '16px',
+                  backgroundColor: '#27AE60',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '5px',
+                  cursor: 'pointer'
+                }}
+              >
+                Next →
+              </button>
+            )}
           </div>
         </div>
       </div>
