@@ -5,6 +5,7 @@ type PieceType = 'p' | 'n' | 'b' | 'r' | 'q' | 'k';
 type PieceColor = 'w' | 'b';
 type Piece = { type: PieceType; color: PieceColor } | null;
 type Square = { row: number; col: number };
+type Move = { from: Square; to: Square; score?: number };
 
 // Initial board setup
 const createInitialBoard = (): Piece[][] => [
@@ -30,6 +31,11 @@ const pieceSymbols: Record<string, string> = {
   'bp': '♟', 'bn': '♞', 'bb': '♝', 'br': '♜', 'bq': '♛', 'bk': '♚'
 };
 
+// Piece values for AI
+const pieceValues: Record<PieceType, number> = {
+  'p': 1, 'n': 3, 'b': 3, 'r': 5, 'q': 9, 'k': 100
+};
+
 const ChessGame: React.FC = () => {
   const [board, setBoard] = useState<Piece[][]>(createInitialBoard());
   const [selectedSquare, setSelectedSquare] = useState<Square | null>(null);
@@ -37,6 +43,13 @@ const ChessGame: React.FC = () => {
   const [currentTurn, setCurrentTurn] = useState<PieceColor>('w');
   const [gameMode, setGameMode] = useState<'menu' | 'ai' | 'friend'>('menu');
   const [moveHistory, setMoveHistory] = useState<string[]>([]);
+  const [isInCheck, setIsInCheck] = useState(false);
+  const [gameOver, setGameOver] = useState<{ winner: PieceColor | 'draw'; reason: string } | null>(null);
+  const [capturedPieces, setCapturedPieces] = useState<{ white: Piece[], black: Piece[] }>({ 
+    white: [], 
+    black: [] 
+  });
+  const [score, setScore] = useState<{ white: number, black: number }>({ white: 0, black: 0 });
 
   // Get piece symbol
   const getPieceSymbol = (piece: Piece): string => {
@@ -44,29 +57,60 @@ const ChessGame: React.FC = () => {
     return pieceSymbols[`${piece.color}${piece.type}`] || '';
   };
 
-  // Check if path is clear (for rook, bishop, queen)
-  const isPathClear = (from: Square, to: Square, board: Piece[][]): boolean => {
-    const rowDiff = to.row - from.row;
-    const colDiff = to.col - from.col;
-    const rowStep = rowDiff === 0 ? 0 : rowDiff / Math.abs(rowDiff);
-    const colStep = colDiff === 0 ? 0 : colDiff / Math.abs(colDiff);
-    
-    let currentRow = from.row + rowStep;
-    let currentCol = from.col + colStep;
-    
-    while (currentRow !== to.row || currentCol !== to.col) {
-      if (board[currentRow][currentCol] !== null) {
-        return false;
+  // Find king position
+  const findKing = (board: Piece[][], color: PieceColor): Square | null => {
+    for (let row = 0; row < 8; row++) {
+      for (let col = 0; col < 8; col++) {
+        const piece = board[row][col];
+        if (piece && piece.type === 'k' && piece.color === color) {
+          return { row, col };
+        }
       }
-      currentRow += rowStep;
-      currentCol += colStep;
     }
-    
-    return true;
+    return null;
   };
 
-  // Get all valid moves for a piece
-  const getValidMoves = (from: Square, board: Piece[][]): Square[] => {
+  // Check if a square is attacked by enemy
+  const isSquareAttacked = (square: Square, byColor: PieceColor, board: Piece[][]): boolean => {
+    for (let row = 0; row < 8; row++) {
+      for (let col = 0; col < 8; col++) {
+        const piece = board[row][col];
+        if (piece && piece.color === byColor) {
+          const moves = getPossibleMovesWithoutCheckValidation({ row, col }, board);
+          if (moves.some(move => move.row === square.row && move.col === square.col)) {
+            return true;
+          }
+        }
+      }
+    }
+    return false;
+  };
+
+  // Check if king is in check
+  const isKingInCheck = (color: PieceColor, board: Piece[][]): boolean => {
+    const kingPos = findKing(board, color);
+    if (!kingPos) return false;
+    return isSquareAttacked(kingPos, color === 'w' ? 'b' : 'w', board);
+  };
+
+  // Simulate a move and check if it leaves king in check
+  const wouldMoveLeaveKingInCheck = (from: Square, to: Square, board: Piece[][]): boolean => {
+    const piece = board[from.row][from.col];
+    if (!piece) return true;
+    
+    // Create a copy of the board
+    const testBoard = board.map(row => [...row]);
+    
+    // Make the move
+    testBoard[to.row][to.col] = piece;
+    testBoard[from.row][from.col] = null;
+    
+    // Check if king is in check after the move
+    return isKingInCheck(piece.color, testBoard);
+  };
+
+  // Get possible moves without check validation (used for attack detection)
+  const getPossibleMovesWithoutCheckValidation = (from: Square, board: Piece[][]): Square[] => {
     const piece = board[from.row][from.col];
     if (!piece) return [];
     
@@ -184,18 +228,82 @@ const ChessGame: React.FC = () => {
     return moves;
   };
 
+  // Get valid moves (with check validation)
+  const getValidMoves = (from: Square, board: Piece[][]): Square[] => {
+    const possibleMoves = getPossibleMovesWithoutCheckValidation(from, board);
+    
+    // Filter out moves that would leave king in check
+    return possibleMoves.filter(to => !wouldMoveLeaveKingInCheck(from, to, board));
+  };
+
+  // Check if player has any legal moves
+  const hasLegalMoves = (color: PieceColor, board: Piece[][]): boolean => {
+    for (let row = 0; row < 8; row++) {
+      for (let col = 0; col < 8; col++) {
+        const piece = board[row][col];
+        if (piece && piece.color === color) {
+          const moves = getValidMoves({ row, col }, board);
+          if (moves.length > 0) return true;
+        }
+      }
+    }
+    return false;
+  };
+
+  // Check for checkmate or stalemate
+  const checkGameOver = (board: Piece[][], currentTurn: PieceColor) => {
+    const inCheck = isKingInCheck(currentTurn, board);
+    const hasLegalMove = hasLegalMoves(currentTurn, board);
+    
+    if (!hasLegalMove) {
+      if (inCheck) {
+        // Checkmate
+        setGameOver({ 
+          winner: currentTurn === 'w' ? 'b' : 'w', 
+          reason: 'Checkmate!' 
+        });
+      } else {
+        // Stalemate
+        setGameOver({ 
+          winner: 'draw', 
+          reason: 'Stalemate - Draw!' 
+        });
+      }
+    }
+  };
+
   // Make a move
   const makeMove = (from: Square, to: Square) => {
     const newBoard = board.map(row => [...row]);
     const piece = newBoard[from.row][from.col];
     const capturedPiece = newBoard[to.row][to.col];
     
+    // Safety check
+    if (!piece) return;
+    
+    // Track captured piece
+    if (capturedPiece) {
+      const capturedBy = piece.color;
+      const capturedKey = capturedBy === 'w' ? 'white' : 'black';
+      setCapturedPieces(prev => ({
+        ...prev,
+        [capturedKey]: [...prev[capturedKey], capturedPiece]
+      }));
+      
+      // Update score
+      const points = pieceValues[capturedPiece.type];
+      setScore(prev => ({
+        ...prev,
+        [capturedKey]: prev[capturedKey] + points
+      }));
+    }
+    
     // Move the piece
     newBoard[to.row][to.col] = piece;
     newBoard[from.row][from.col] = null;
     
     // Pawn promotion
-    if (piece?.type === 'p') {
+    if (piece.type === 'p') {
       if ((piece.color === 'w' && to.row === 0) || (piece.color === 'b' && to.row === 7)) {
         newBoard[to.row][to.col] = { type: 'q', color: piece.color };
       }
@@ -203,17 +311,104 @@ const ChessGame: React.FC = () => {
     
     // Update state
     setBoard(newBoard);
-    setCurrentTurn(currentTurn === 'w' ? 'b' : 'w');
+    const nextTurn = currentTurn === 'w' ? 'b' : 'w';
+    setCurrentTurn(nextTurn);
     setSelectedSquare(null);
     setPossibleMoves([]);
     
+    // Check if next player is in check
+    setIsInCheck(isKingInCheck(nextTurn, newBoard));
+    
+    // Check for game over
+    checkGameOver(newBoard, nextTurn);
+    
     // Add to move history
-    const moveNotation = `${piece?.type}${capturedPiece ? 'x' : ''}${String.fromCharCode(97 + to.col)}${8 - to.row}`;
+    const moveNotation = `${piece.type}${capturedPiece ? 'x' : ''}${String.fromCharCode(97 + to.col)}${8 - to.row}`;
     setMoveHistory([...moveHistory, moveNotation]);
+  };
+
+  // Evaluate board position for AI
+  const evaluateBoard = (board: Piece[][]): number => {
+    let score = 0;
+    
+    for (let row = 0; row < 8; row++) {
+      for (let col = 0; col < 8; col++) {
+        const piece = board[row][col];
+        if (piece) {
+          const value = pieceValues[piece.type];
+          score += piece.color === 'b' ? value : -value;
+        }
+      }
+    }
+    
+    return score;
+  };
+
+  // Get best move for AI
+  const getBestMove = (board: Piece[][]): Move | null => {
+    const moves: Move[] = [];
+    
+    // Generate all possible moves
+    for (let row = 0; row < 8; row++) {
+      for (let col = 0; col < 8; col++) {
+        const piece = board[row][col];
+        if (piece && piece.color === 'b') {
+          const validMoves = getValidMoves({ row, col }, board);
+          validMoves.forEach(to => {
+            moves.push({ from: { row, col }, to });
+          });
+        }
+      }
+    }
+    
+    if (moves.length === 0) return null;
+    
+    // Evaluate each move
+    moves.forEach(move => {
+      const testBoard = board.map(row => [...row]);
+      const capturedPiece = testBoard[move.to.row][move.to.col];
+      
+      // Make the move on test board
+      testBoard[move.to.row][move.to.col] = testBoard[move.from.row][move.from.col];
+      testBoard[move.from.row][move.from.col] = null;
+      
+      // Calculate score
+      let score = evaluateBoard(testBoard);
+      
+      // Bonus for captures
+      if (capturedPiece) {
+        score += pieceValues[capturedPiece.type] * 10;
+      }
+      
+      // Bonus for checking the enemy king
+      if (isKingInCheck('w', testBoard)) {
+        score += 50;
+      }
+      
+      // Penalty if our piece can be captured
+      if (isSquareAttacked(move.to, 'w', testBoard)) {
+        const ourPiece = board[move.from.row][move.from.col];
+        if (ourPiece) {
+          score -= pieceValues[ourPiece.type] * 5;
+        }
+      }
+      
+      move.score = score;
+    });
+    
+    // Sort moves by score and pick one of the best
+    moves.sort((a, b) => (b.score || 0) - (a.score || 0));
+    const bestScore = moves[0].score;
+    const bestMoves = moves.filter(m => m.score === bestScore);
+    
+    // Return random best move for variety
+    return bestMoves[Math.floor(Math.random() * bestMoves.length)];
   };
 
   // Handle square click
   const handleSquareClick = (row: number, col: number) => {
+    if (gameOver) return;
+    
     // If there's a selected piece
     if (selectedSquare) {
       const isValidMove = possibleMoves.some(move => move.row === row && move.col === col);
@@ -243,33 +438,17 @@ const ChessGame: React.FC = () => {
 
   // AI move
   useEffect(() => {
-    if (gameMode === 'ai' && currentTurn === 'b') {
+    if (gameMode === 'ai' && currentTurn === 'b' && !gameOver) {
       const timer = setTimeout(() => {
-        // Find all black pieces
-        const blackPieces: Square[] = [];
-        board.forEach((row, rowIndex) => {
-          row.forEach((piece, colIndex) => {
-            if (piece && piece.color === 'b') {
-              blackPieces.push({ row: rowIndex, col: colIndex });
-            }
-          });
-        });
-        
-        // Find a piece with valid moves
-        const shuffled = [...blackPieces].sort(() => Math.random() - 0.5);
-        for (const pieceSquare of shuffled) {
-          const moves = getValidMoves(pieceSquare, board);
-          if (moves.length > 0) {
-            const randomMove = moves[Math.floor(Math.random() * moves.length)];
-            makeMove(pieceSquare, randomMove);
-            break;
-          }
+        const bestMove = getBestMove(board);
+        if (bestMove) {
+          makeMove(bestMove.from, bestMove.to);
         }
       }, 500);
       
       return () => clearTimeout(timer);
     }
-  }, [currentTurn, gameMode, board]);
+  }, [currentTurn, gameMode, board, gameOver]);
 
   // Reset game
   const resetGame = () => {
@@ -278,6 +457,10 @@ const ChessGame: React.FC = () => {
     setSelectedSquare(null);
     setPossibleMoves([]);
     setMoveHistory([]);
+    setIsInCheck(false);
+    setGameOver(null);
+    setCapturedPieces({ white: [], black: [] });
+    setScore({ white: 0, black: 0 });
   };
 
   // Start new game
@@ -292,6 +475,7 @@ const ChessGame: React.FC = () => {
     const isLight = (row + col) % 2 === 0;
     const isSelected = selectedSquare?.row === row && selectedSquare?.col === col;
     const isPossibleMove = possibleMoves.some(move => move.row === row && move.col === col);
+    const kingSquare = piece?.type === 'k' && piece.color === currentTurn && isInCheck;
     
     return (
       <div
@@ -300,18 +484,25 @@ const ChessGame: React.FC = () => {
         style={{
           width: '60px',
           height: '60px',
-          backgroundColor: isLight ? '#F5DEB3' : '#8B4513',
+          backgroundColor: kingSquare ? '#FF6B6B' : (isLight ? '#EEEED2' : '#769656'),
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
           cursor: 'pointer',
           position: 'relative',
-          outline: isSelected ? '3px solid #4169E1' : 'none',
+          outline: isSelected ? '3px solid #F7F769' : 'none',
           outlineOffset: '-3px'
         }}
       >
         {piece && (
-          <span style={{ fontSize: '40px', userSelect: 'none' }}>
+          <span style={{ 
+            fontSize: '40px', 
+            userSelect: 'none',
+            color: piece.color === 'w' ? '#FFFFFF' : '#000000',
+            textShadow: piece.color === 'w' 
+              ? '0 0 3px #000, 0 0 5px #000, 0 0 7px #000' 
+              : '0 0 3px #FFF, 0 0 5px #FFF, 0 0 7px #FFF'
+          }}>
             {getPieceSymbol(piece)}
           </span>
         )}
@@ -321,10 +512,10 @@ const ChessGame: React.FC = () => {
               position: 'absolute',
               width: piece ? '100%' : '20px',
               height: piece ? '100%' : '20px',
-              backgroundColor: piece ? 'transparent' : '#32CD32',
-              border: piece ? '3px solid #32CD32' : 'none',
+              backgroundColor: piece ? 'transparent' : 'rgba(0, 0, 0, 0.3)',
+              border: piece ? '3px solid #F7F769' : 'none',
               borderRadius: piece ? '0' : '50%',
-              opacity: 0.7,
+              opacity: 0.9,
               pointerEvents: 'none'
             }}
           />
@@ -396,65 +587,163 @@ const ChessGame: React.FC = () => {
         backgroundColor: '#2C3E50', 
         padding: '20px', 
         borderRadius: '10px',
-        boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)'
+        boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
+        display: 'flex',
+        gap: '30px'
       }}>
-        {/* Header */}
+        {/* Left side - Captured by Black */}
         <div style={{ 
-          color: 'white', 
-          marginBottom: '20px', 
-          textAlign: 'center' 
+          minWidth: '150px',
+          color: 'white',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '10px'
         }}>
-          <h2 style={{ margin: '0 0 10px 0' }}>
-            {gameMode === 'ai' ? '🤖 Playing vs AI' : '👥 Pass & Play'}
-          </h2>
-          <div style={{ fontSize: '18px' }}>
-            {currentTurn === 'w' ? '⚪ White' : '⚫ Black'} to move
+          <div style={{ 
+            fontSize: '18px', 
+            fontWeight: 'bold',
+            marginBottom: '10px',
+            textAlign: 'center'
+          }}>
+            Black: {score.black}
+          </div>
+          <div style={{ 
+            display: 'flex', 
+            flexWrap: 'wrap',
+            gap: '2px',
+            minHeight: '60px',
+            padding: '10px',
+            backgroundColor: 'rgba(255, 255, 255, 0.1)',
+            borderRadius: '5px'
+          }}>
+            {capturedPieces.black.map((piece, index) => (
+              <span key={index} style={{ 
+                fontSize: '30px',
+                color: '#FFFFFF',
+                textShadow: '0 0 3px #000'
+              }}>
+                {getPieceSymbol(piece)}
+              </span>
+            ))}
           </div>
         </div>
-        
-        {/* Chess board */}
-        <div style={{ 
-          display: 'grid', 
-          gridTemplateColumns: 'repeat(8, 60px)',
-          gap: '0',
-          border: '2px solid #1A252F'
-        }}>
-          {board.map((row, rowIndex) =>
-            row.map((_, colIndex) => renderSquare(rowIndex, colIndex))
+
+        {/* Center - Board and controls */}
+        <div>
+          {/* Header */}
+          <div style={{ 
+            color: 'white', 
+            marginBottom: '20px', 
+            textAlign: 'center' 
+          }}>
+            <h2 style={{ margin: '0 0 10px 0' }}>
+              {gameMode === 'ai' ? '🤖 Playing vs AI' : '👥 Pass & Play'}
+            </h2>
+            <div style={{ fontSize: '18px' }}>
+              {currentTurn === 'w' ? '⚪ White' : '⚫ Black'} to move
+              {isInCheck && <span style={{ color: '#FF6B6B', marginLeft: '10px' }}>CHECK!</span>}
+            </div>
+          </div>
+          
+          {/* Game Over Message */}
+          {gameOver && (
+            <div style={{
+              backgroundColor: gameOver.winner === 'draw' ? '#F39C12' : '#27AE60',
+              color: 'white',
+              padding: '15px',
+              borderRadius: '5px',
+              marginBottom: '20px',
+              textAlign: 'center',
+              fontSize: '20px',
+              fontWeight: 'bold'
+            }}>
+              {gameOver.reason}
+              {gameOver.winner !== 'draw' && ` ${gameOver.winner === 'w' ? 'White' : 'Black'} wins!`}
+            </div>
           )}
+          
+          {/* Chess board */}
+          <div style={{ 
+            display: 'grid', 
+            gridTemplateColumns: 'repeat(8, 60px)',
+            gap: '0',
+            border: '2px solid #1A252F',
+            boxShadow: '0 2px 10px rgba(0, 0, 0, 0.3)'
+          }}>
+            {board.map((row, rowIndex) =>
+              row.map((_, colIndex) => renderSquare(rowIndex, colIndex))
+            )}
+          </div>
+          
+          {/* Controls */}
+          <div style={{ marginTop: '20px', textAlign: 'center' }}>
+            <button
+              onClick={() => setGameMode('menu')}
+              style={{
+                padding: '10px 20px',
+                fontSize: '16px',
+                backgroundColor: '#E74C3C',
+                color: 'white',
+                border: 'none',
+                borderRadius: '5px',
+                cursor: 'pointer',
+                marginRight: '10px'
+              }}
+            >
+              Back to Menu
+            </button>
+            <button
+              onClick={resetGame}
+              style={{
+                padding: '10px 20px',
+                fontSize: '16px',
+                backgroundColor: '#95A5A6',
+                color: 'white',
+                border: 'none',
+                borderRadius: '5px',
+                cursor: 'pointer'
+              }}
+            >
+              New Game
+            </button>
+          </div>
         </div>
-        
-        {/* Controls */}
-        <div style={{ marginTop: '20px', textAlign: 'center' }}>
-          <button
-            onClick={() => setGameMode('menu')}
-            style={{
-              padding: '10px 20px',
-              fontSize: '16px',
-              backgroundColor: '#E74C3C',
-              color: 'white',
-              border: 'none',
-              borderRadius: '5px',
-              cursor: 'pointer',
-              marginRight: '10px'
-            }}
-          >
-            Back to Menu
-          </button>
-          <button
-            onClick={resetGame}
-            style={{
-              padding: '10px 20px',
-              fontSize: '16px',
-              backgroundColor: '#95A5A6',
-              color: 'white',
-              border: 'none',
-              borderRadius: '5px',
-              cursor: 'pointer'
-            }}
-          >
-            Reset Game
-          </button>
+
+        {/* Right side - Captured by White */}
+        <div style={{ 
+          minWidth: '150px',
+          color: 'white',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '10px'
+        }}>
+          <div style={{ 
+            fontSize: '18px', 
+            fontWeight: 'bold',
+            marginBottom: '10px',
+            textAlign: 'center'
+          }}>
+            White: {score.white}
+          </div>
+          <div style={{ 
+            display: 'flex', 
+            flexWrap: 'wrap',
+            gap: '2px',
+            minHeight: '60px',
+            padding: '10px',
+            backgroundColor: 'rgba(255, 255, 255, 0.1)',
+            borderRadius: '5px'
+          }}>
+            {capturedPieces.white.map((piece, index) => (
+              <span key={index} style={{ 
+                fontSize: '30px',
+                color: '#000000',
+                textShadow: '0 0 3px #FFF'
+              }}>
+                {getPieceSymbol(piece)}
+              </span>
+            ))}
+          </div>
         </div>
       </div>
     </div>
