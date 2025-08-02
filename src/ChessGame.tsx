@@ -94,14 +94,11 @@ const ChessGame: React.FC = () => {
   const [possibleMoves, setPossibleMoves] = useState<Square[]>([]);
   const [currentTurn, setCurrentTurn] = useState<PieceColor>('w');
   const [gameMode, setGameMode] = useState<'menu' | 'ai' | 'friend' | 'puzzle'>('menu');
-  const [moveHistory, setMoveHistory] = useState<string[]>([]);
-  const [isInCheck, setIsInCheck] = useState(false);
+  const [capturedPieces, setCapturedPieces] = useState<{ white: Piece[]; black: Piece[] }>({ white: [], black: [] });
+  const [score, setScore] = useState<{ white: number; black: number }>({ white: 0, black: 0 });
+  const [isInCheck, setIsInCheck] = useState<boolean>(false);
   const [gameOver, setGameOver] = useState<{ winner: PieceColor | 'draw'; reason: string } | null>(null);
-  const [capturedPieces, setCapturedPieces] = useState<{ white: Piece[], black: Piece[] }>({ 
-    white: [], 
-    black: [] 
-  });
-  const [score, setScore] = useState<{ white: number, black: number }>({ white: 0, black: 0 });
+  const [moveHistory, setMoveHistory] = useState<string[]>([]);
   const [currentPuzzle, setCurrentPuzzle] = useState(0);
   const [puzzleStatus, setPuzzleStatus] = useState<'solving' | 'correct' | 'incorrect'>('solving');
   const [puzzleAttempts, setPuzzleAttempts] = useState(0);

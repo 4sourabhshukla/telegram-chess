@@ -15,12 +15,8 @@ const CapturedPieces: React.FC<Props> = ({ pieces, color, score, getPieceSymbol 
     </div>
     <div className="captured-list">
       {pieces.map((piece, index) => (
-        <span key={index} className={`chess-piece chess-piece-${color}`}>
-          {getPieceSymbol(piece)}
-        </span>
+        <span key={index} className={`chess-piece chess-piece-${color}`}>{getPieceSymbol(piece)}</span>
       ))}
     </div>
   </div>
 );
-
-export default CapturedPieces;
