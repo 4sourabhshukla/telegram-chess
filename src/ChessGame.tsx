@@ -36,12 +36,64 @@ const pieceValues: Record<PieceType, number> = {
   'p': 1, 'n': 3, 'b': 3, 'r': 5, 'q': 9, 'k': 100
 };
 
+// Chess puzzles
+const chessPuzzles = [
+  {
+    name: "Back Rank Mate",
+    fen: [
+      [null, null, null, null, { type: 'r', color: 'b' }, null, { type: 'k', color: 'b' }, null],
+      [null, null, null, null, null, { type: 'p', color: 'b' }, { type: 'p', color: 'b' }, { type: 'p', color: 'b' }],
+      [null, null, null, null, null, null, null, null],
+      [null, null, null, null, null, null, null, null],
+      [null, null, null, null, null, null, null, null],
+      [null, null, null, { type: 'q', color: 'w' }, null, null, null, null],
+      [null, null, null, null, null, { type: 'p', color: 'w' }, { type: 'p', color: 'w' }, { type: 'p', color: 'w' }],
+      [null, null, null, null, null, null, { type: 'k', color: 'w' }, null]
+    ] as Piece[][],
+    solution: { from: { row: 5, col: 3 }, to: { row: 0, col: 3 } }, // Qd3-d8#
+    hint: "Look for a back rank checkmate!",
+    description: "White to move - Mate in 1"
+  },
+  {
+    name: "Queen Sacrifice",
+    fen: [
+      [{ type: 'r', color: 'b' }, null, null, null, { type: 'k', color: 'b' }, null, null, { type: 'r', color: 'b' }],
+      [{ type: 'p', color: 'b' }, { type: 'p', color: 'b' }, null, null, null, { type: 'p', color: 'b' }, { type: 'p', color: 'b' }, null],
+      [null, null, { type: 'n', color: 'b' }, null, null, null, null, { type: 'p', color: 'b' }],
+      [null, null, null, null, null, null, null, null],
+      [null, null, null, null, null, { type: 'b', color: 'w' }, null, null],
+      [null, null, null, null, null, null, null, null],
+      [{ type: 'p', color: 'w' }, { type: 'p', color: 'w' }, { type: 'p', color: 'w' }, null, null, { type: 'p', color: 'w' }, { type: 'p', color: 'w' }, { type: 'p', color: 'w' }],
+      [null, null, null, { type: 'q', color: 'w' }, null, { type: 'r', color: 'w' }, { type: 'k', color: 'w' }, null]
+    ] as Piece[][],
+    solution: { from: { row: 7, col: 3 }, to: { row: 0, col: 3 } }, // Qd1-d8+
+    hint: "Sometimes you need to sacrifice your most powerful piece!",
+    description: "White to move - Mate in 2"
+  },
+  {
+    name: "Fork Attack",
+    fen: [
+      [null, null, null, { type: 'r', color: 'b' }, null, { type: 'r', color: 'b' }, { type: 'k', color: 'b' }, null],
+      [{ type: 'p', color: 'b' }, { type: 'p', color: 'b' }, { type: 'p', color: 'b' }, null, null, { type: 'p', color: 'b' }, { type: 'p', color: 'b' }, { type: 'p', color: 'b' }],
+      [null, null, null, null, null, null, null, null],
+      [null, null, null, null, { type: 'p', color: 'b' }, null, null, null],
+      [null, null, null, null, { type: 'p', color: 'w' }, null, null, null],
+      [null, null, { type: 'n', color: 'w' }, null, null, null, null, null],
+      [{ type: 'p', color: 'w' }, { type: 'p', color: 'w' }, { type: 'p', color: 'w' }, null, null, { type: 'p', color: 'w' }, { type: 'p', color: 'w' }, { type: 'p', color: 'w' }],
+      [{ type: 'r', color: 'w' }, null, null, null, { type: 'k', color: 'w' }, null, null, { type: 'r', color: 'w' }]
+    ] as Piece[][],
+    solution: { from: { row: 5, col: 2 }, to: { row: 3, col: 3 } }, // Nc3-d5 forking king and rook
+    hint: "Knights are great at attacking two pieces at once!",
+    description: "White to move - Win material"
+  }
+];
+
 const ChessGame: React.FC = () => {
   const [board, setBoard] = useState<Piece[][]>(createInitialBoard());
   const [selectedSquare, setSelectedSquare] = useState<Square | null>(null);
   const [possibleMoves, setPossibleMoves] = useState<Square[]>([]);
   const [currentTurn, setCurrentTurn] = useState<PieceColor>('w');
-  const [gameMode, setGameMode] = useState<'menu' | 'ai' | 'friend'>('menu');
+  const [gameMode, setGameMode] = useState<'menu' | 'ai' | 'friend' | 'puzzle'>('menu');
   const [moveHistory, setMoveHistory] = useState<string[]>([]);
   const [isInCheck, setIsInCheck] = useState(false);
   const [gameOver, setGameOver] = useState<{ winner: PieceColor | 'draw'; reason: string } | null>(null);
@@ -50,6 +102,9 @@ const ChessGame: React.FC = () => {
     black: [] 
   });
   const [score, setScore] = useState<{ white: number, black: number }>({ white: 0, black: 0 });
+  const [currentPuzzle, setCurrentPuzzle] = useState(0);
+  const [puzzleStatus, setPuzzleStatus] = useState<'solving' | 'correct' | 'incorrect'>('solving');
+  const [puzzleAttempts, setPuzzleAttempts] = useState(0);
 
   // Get piece symbol
   const getPieceSymbol = (piece: Piece): string => {
@@ -284,17 +339,16 @@ const ChessGame: React.FC = () => {
     // Track captured piece
     if (capturedPiece) {
       const capturedBy = piece.color;
-      const capturedKey = capturedBy === 'w' ? 'white' : 'black';
       setCapturedPieces(prev => ({
         ...prev,
-        [capturedKey]: [...prev[capturedKey], capturedPiece]
+        [capturedBy === 'w' ? 'white' : 'black']: [...prev[capturedBy === 'w' ? 'white' : 'black'], capturedPiece]
       }));
       
       // Update score
       const points = pieceValues[capturedPiece.type];
       setScore(prev => ({
         ...prev,
-        [capturedKey]: prev[capturedKey] + points
+        [capturedBy === 'w' ? 'white' : 'black']: prev[capturedBy === 'w' ? 'white' : 'black'] + points
       }));
     }
     
@@ -409,7 +463,59 @@ const ChessGame: React.FC = () => {
   const handleSquareClick = (row: number, col: number) => {
     if (gameOver) return;
     
-    // If there's a selected piece
+    // Puzzle mode
+    if (gameMode === 'puzzle') {
+      if (puzzleStatus !== 'solving') return;
+      
+      const puzzle = chessPuzzles[currentPuzzle];
+      
+      if (selectedSquare) {
+        const isValidMove = possibleMoves.some(move => move.row === row && move.col === col);
+        
+        if (isValidMove) {
+          // Check if this is the correct solution
+          const isCorrect = 
+            selectedSquare.row === puzzle.solution.from.row &&
+            selectedSquare.col === puzzle.solution.from.col &&
+            row === puzzle.solution.to.row &&
+            col === puzzle.solution.to.col;
+          
+          if (isCorrect) {
+            makeMove(selectedSquare, { row, col });
+            setPuzzleStatus('correct');
+          } else {
+            setPuzzleStatus('incorrect');
+            setPuzzleAttempts(prev => prev + 1);
+            // Reset selection after wrong move
+            setTimeout(() => {
+              setPuzzleStatus('solving');
+              setSelectedSquare(null);
+              setPossibleMoves([]);
+            }, 1500);
+          }
+        } else {
+          // Select new piece
+          const piece = board[row][col];
+          if (piece && piece.color === 'w') {
+            setSelectedSquare({ row, col });
+            setPossibleMoves(getValidMoves({ row, col }, board));
+          } else {
+            setSelectedSquare(null);
+            setPossibleMoves([]);
+          }
+        }
+      } else {
+        // Select a piece
+        const piece = board[row][col];
+        if (piece && piece.color === 'w') {
+          setSelectedSquare({ row, col });
+          setPossibleMoves(getValidMoves({ row, col }, board));
+        }
+      }
+      return;
+    }
+    
+    // Regular game modes (AI and friend)
     if (selectedSquare) {
       const isValidMove = possibleMoves.some(move => move.row === row && move.col === col);
       
@@ -434,6 +540,29 @@ const ChessGame: React.FC = () => {
         setPossibleMoves(getValidMoves({ row, col }, board));
       }
     }
+  };
+
+  // Navigate puzzles
+  const nextPuzzle = () => {
+    const nextIndex = (currentPuzzle + 1) % chessPuzzles.length;
+    setCurrentPuzzle(nextIndex);
+    setBoard(chessPuzzles[nextIndex].fen);
+    setCurrentTurn('w');
+    setPuzzleStatus('solving');
+    setPuzzleAttempts(0);
+    setSelectedSquare(null);
+    setPossibleMoves([]);
+  };
+  
+  const previousPuzzle = () => {
+    const prevIndex = currentPuzzle === 0 ? chessPuzzles.length - 1 : currentPuzzle - 1;
+    setCurrentPuzzle(prevIndex);
+    setBoard(chessPuzzles[prevIndex].fen);
+    setCurrentTurn('w');
+    setPuzzleStatus('solving');
+    setPuzzleAttempts(0);
+    setSelectedSquare(null);
+    setPossibleMoves([]);
   };
 
   // AI move
@@ -464,9 +593,17 @@ const ChessGame: React.FC = () => {
   };
 
   // Start new game
-  const startGame = (mode: 'ai' | 'friend') => {
+  const startGame = (mode: 'ai' | 'friend' | 'puzzle') => {
     setGameMode(mode);
-    resetGame();
+    if (mode === 'puzzle') {
+      // Load first puzzle
+      setBoard(chessPuzzles[currentPuzzle].fen);
+      setCurrentTurn('w');
+      setPuzzleStatus('solving');
+      setPuzzleAttempts(0);
+    } else {
+      resetGame();
+    }
   };
 
   // Render square
@@ -566,6 +703,21 @@ const ChessGame: React.FC = () => {
               }}
             >
               👥 Pass & Play
+            </button>
+            <button
+              onClick={() => startGame('puzzle')}
+              style={{
+                padding: '20px 40px',
+                fontSize: '20px',
+                backgroundColor: '#9B59B6',
+                color: 'white',
+                border: 'none',
+                borderRadius: '10px',
+                cursor: 'pointer',
+                width: '250px'
+              }}
+            >
+              🧩 Puzzles
             </button>
           </div>
         </div>
