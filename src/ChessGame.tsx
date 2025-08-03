@@ -36,10 +36,14 @@ const pieceValues: Record<PieceType, number> = {
   'p': 1, 'n': 3, 'b': 3, 'r': 5, 'q': 9, 'k': 100
 };
 
-// Chess puzzles
+// Chess puzzles - Extended collection
 const chessPuzzles = [
+  // Beginner Puzzles
   {
+    id: 1,
     name: "Back Rank Mate",
+    category: 'checkmate',
+    difficulty: 'beginner',
     fen: [
       [null, null, null, null, { type: 'r', color: 'b' }, null, { type: 'k', color: 'b' }, null],
       [null, null, null, null, null, { type: 'p', color: 'b' }, { type: 'p', color: 'b' }, { type: 'p', color: 'b' }],
@@ -50,28 +54,53 @@ const chessPuzzles = [
       [null, null, null, null, null, { type: 'p', color: 'w' }, { type: 'p', color: 'w' }, { type: 'p', color: 'w' }],
       [null, null, null, null, null, null, { type: 'k', color: 'w' }, null]
     ] as Piece[][],
-    solution: { from: { row: 5, col: 3 }, to: { row: 0, col: 3 } }, // Qd3-d8#
+    solution: { from: { row: 5, col: 3 }, to: { row: 0, col: 3 } },
     hint: "Look for a back rank checkmate!",
     description: "White to move - Mate in 1"
   },
   {
-    name: "Queen Sacrifice",
+    id: 2,
+    name: "Queen and King Mate",
+    category: 'checkmate',
+    difficulty: 'beginner',
     fen: [
-      [{ type: 'r', color: 'b' }, null, null, null, { type: 'k', color: 'b' }, null, null, { type: 'r', color: 'b' }],
-      [{ type: 'p', color: 'b' }, { type: 'p', color: 'b' }, null, null, null, { type: 'p', color: 'b' }, { type: 'p', color: 'b' }, null],
-      [null, null, { type: 'n', color: 'b' }, null, null, null, null, { type: 'p', color: 'b' }],
+      [null, null, null, null, null, null, null, { type: 'k', color: 'b' }],
       [null, null, null, null, null, null, null, null],
-      [null, null, null, null, null, { type: 'b', color: 'w' }, null, null],
+      [null, null, null, null, null, { type: 'k', color: 'w' }, null, null],
       [null, null, null, null, null, null, null, null],
-      [{ type: 'p', color: 'w' }, { type: 'p', color: 'w' }, { type: 'p', color: 'w' }, null, null, { type: 'p', color: 'w' }, { type: 'p', color: 'w' }, { type: 'p', color: 'w' }],
-      [null, null, null, { type: 'q', color: 'w' }, null, { type: 'r', color: 'w' }, { type: 'k', color: 'w' }, null]
+      [null, null, null, null, null, null, null, null],
+      [null, { type: 'q', color: 'w' }, null, null, null, null, null, null],
+      [null, null, null, null, null, null, null, null],
+      [null, null, null, null, null, null, null, null]
     ] as Piece[][],
-    solution: { from: { row: 7, col: 3 }, to: { row: 0, col: 3 } }, // Qd1-d8+
-    hint: "Sometimes you need to sacrifice your most powerful piece!",
-    description: "White to move - Mate in 2"
+    solution: { from: { row: 5, col: 1 }, to: { row: 0, col: 6 } },
+    hint: "Drive the king to the edge and deliver mate!",
+    description: "White to move - Mate in 1"
   },
   {
+    id: 3,
+    name: "Smothered Mate",
+    category: 'checkmate',
+    difficulty: 'intermediate',
+    fen: [
+      [null, null, null, null, null, { type: 'r', color: 'b' }, { type: 'k', color: 'b' }, null],
+      [null, null, null, null, null, { type: 'p', color: 'b' }, { type: 'p', color: 'b' }, { type: 'p', color: 'b' }],
+      [null, null, null, null, null, null, { type: 'n', color: 'w' }, null],
+      [null, null, null, null, null, null, null, null],
+      [null, null, null, null, null, null, null, null],
+      [null, null, null, null, null, null, null, null],
+      [null, null, null, null, null, null, null, null],
+      [null, null, null, null, null, null, { type: 'k', color: 'w' }, null]
+    ] as Piece[][],
+    solution: { from: { row: 2, col: 6 }, to: { row: 1, col: 4 } },
+    hint: "The knight can deliver a special mate when the king is trapped by its own pieces!",
+    description: "White to move - Mate in 1"
+  },
+  {
+    id: 4,
     name: "Fork Attack",
+    category: 'tactics',
+    difficulty: 'beginner',
     fen: [
       [null, null, null, { type: 'r', color: 'b' }, null, { type: 'r', color: 'b' }, { type: 'k', color: 'b' }, null],
       [{ type: 'p', color: 'b' }, { type: 'p', color: 'b' }, { type: 'p', color: 'b' }, null, null, { type: 'p', color: 'b' }, { type: 'p', color: 'b' }, { type: 'p', color: 'b' }],
@@ -82,9 +111,123 @@ const chessPuzzles = [
       [{ type: 'p', color: 'w' }, { type: 'p', color: 'w' }, { type: 'p', color: 'w' }, null, null, { type: 'p', color: 'w' }, { type: 'p', color: 'w' }, { type: 'p', color: 'w' }],
       [{ type: 'r', color: 'w' }, null, null, null, { type: 'k', color: 'w' }, null, null, { type: 'r', color: 'w' }]
     ] as Piece[][],
-    solution: { from: { row: 5, col: 2 }, to: { row: 3, col: 3 } }, // Nc3-d5 forking king and rook
+    solution: { from: { row: 5, col: 2 }, to: { row: 3, col: 3 } },
     hint: "Knights are great at attacking two pieces at once!",
     description: "White to move - Win material"
+  },
+  {
+    id: 5,
+    name: "Pin and Win",
+    category: 'tactics',
+    difficulty: 'intermediate',
+    fen: [
+      [{ type: 'r', color: 'b' }, null, null, null, { type: 'k', color: 'b' }, null, null, { type: 'r', color: 'b' }],
+      [{ type: 'p', color: 'b' }, { type: 'p', color: 'b' }, { type: 'p', color: 'b' }, { type: 'b', color: 'b' }, null, { type: 'p', color: 'b' }, { type: 'p', color: 'b' }, { type: 'p', color: 'b' }],
+      [null, null, { type: 'n', color: 'b' }, null, null, null, null, null],
+      [null, null, null, null, { type: 'p', color: 'b' }, null, null, null],
+      [null, null, { type: 'b', color: 'w' }, null, { type: 'p', color: 'w' }, null, null, null],
+      [null, null, null, null, null, null, null, null],
+      [{ type: 'p', color: 'w' }, { type: 'p', color: 'w' }, { type: 'p', color: 'w' }, null, null, { type: 'p', color: 'w' }, { type: 'p', color: 'w' }, { type: 'p', color: 'w' }],
+      [{ type: 'r', color: 'w' }, null, null, { type: 'q', color: 'w' }, { type: 'k', color: 'w' }, null, null, { type: 'r', color: 'w' }]
+    ] as Piece[][],
+    solution: { from: { row: 4, col: 2 }, to: { row: 1, col: 5 } },
+    hint: "Pin the knight to the king and win material!",
+    description: "White to move - Win a piece"
+  },
+  {
+    id: 6,
+    name: "Discovered Attack",
+    category: 'tactics',
+    difficulty: 'intermediate',
+    fen: [
+      [null, null, null, { type: 'q', color: 'b' }, { type: 'k', color: 'b' }, null, null, { type: 'r', color: 'b' }],
+      [{ type: 'p', color: 'b' }, { type: 'p', color: 'b' }, null, null, null, { type: 'p', color: 'b' }, { type: 'p', color: 'b' }, { type: 'p', color: 'b' }],
+      [null, null, null, null, { type: 'p', color: 'b' }, null, null, null],
+      [null, null, null, { type: 'n', color: 'w' }, null, null, null, null],
+      [null, null, null, null, null, null, null, null],
+      [null, null, null, null, null, null, null, null],
+      [{ type: 'p', color: 'w' }, { type: 'p', color: 'w' }, null, { type: 'r', color: 'w' }, null, { type: 'p', color: 'w' }, { type: 'p', color: 'w' }, { type: 'p', color: 'w' }],
+      [null, null, null, null, { type: 'k', color: 'w' }, null, null, { type: 'r', color: 'w' }]
+    ] as Piece[][],
+    solution: { from: { row: 3, col: 3 }, to: { row: 2, col: 5 } },
+    hint: "Move the knight to discover an attack on the queen!",
+    description: "White to move - Win the queen"
+  },
+  {
+    id: 7,
+    name: "Pawn Promotion",
+    category: 'endgame',
+    difficulty: 'beginner',
+    fen: [
+      [null, null, null, null, null, null, null, null],
+      [null, { type: 'p', color: 'w' }, null, null, null, null, { type: 'k', color: 'b' }, null],
+      [null, null, null, null, null, null, null, null],
+      [null, null, null, null, null, null, null, null],
+      [null, null, null, null, null, null, null, null],
+      [null, null, null, null, null, { type: 'k', color: 'w' }, null, null],
+      [null, null, null, null, null, null, null, null],
+      [null, null, null, null, null, null, null, null]
+    ] as Piece[][],
+    solution: { from: { row: 1, col: 1 }, to: { row: 0, col: 1 } },
+    hint: "Push the pawn to promote to a queen!",
+    description: "White to move - Promote and win"
+  },
+  {
+    id: 8,
+    name: "King and Pawn Endgame",
+    category: 'endgame',
+    difficulty: 'intermediate',
+    fen: [
+      [null, null, null, null, null, null, null, null],
+      [null, null, null, null, null, null, null, null],
+      [null, null, null, { type: 'k', color: 'b' }, null, null, null, null],
+      [null, null, { type: 'p', color: 'w' }, null, null, null, null, null],
+      [null, null, null, { type: 'k', color: 'w' }, null, null, null, null],
+      [null, null, null, null, null, null, null, null],
+      [null, null, null, null, null, null, null, null],
+      [null, null, null, null, null, null, null, null]
+    ] as Piece[][],
+    solution: { from: { row: 4, col: 3 }, to: { row: 3, col: 3 } },
+    hint: "The king must support the pawn's advance!",
+    description: "White to move - Win with proper technique"
+  },
+  {
+    id: 9,
+    name: "Rook Endgame Cut-off",
+    category: 'endgame',
+    difficulty: 'advanced',
+    fen: [
+      [null, null, null, null, { type: 'k', color: 'b' }, null, null, null],
+      [null, null, null, null, null, null, null, null],
+      [null, null, null, null, null, null, null, null],
+      [null, null, null, null, null, null, null, { type: 'p', color: 'w' }],
+      [null, null, null, null, null, null, { type: 'k', color: 'w' }, null],
+      [{ type: 'r', color: 'w' }, null, null, null, null, null, null, null],
+      [null, null, null, null, null, null, null, null],
+      [null, null, null, null, null, null, null, null]
+    ] as Piece[][],
+    solution: { from: { row: 5, col: 0 }, to: { row: 5, col: 4 } },
+    hint: "Cut off the enemy king from the pawn!",
+    description: "White to move - Secure the win"
+  },
+  {
+    id: 10,
+    name: "Queen Sacrifice for Mate",
+    category: 'checkmate',
+    difficulty: 'advanced',
+    fen: [
+      [{ type: 'r', color: 'b' }, null, null, null, { type: 'k', color: 'b' }, null, null, { type: 'r', color: 'b' }],
+      [{ type: 'p', color: 'b' }, { type: 'p', color: 'b' }, null, null, null, { type: 'p', color: 'b' }, { type: 'p', color: 'b' }, null],
+      [null, null, { type: 'n', color: 'b' }, null, null, null, null, { type: 'p', color: 'b' }],
+      [null, null, null, null, null, null, null, null],
+      [null, null, null, null, null, { type: 'b', color: 'w' }, null, null],
+      [null, null, null, null, null, null, null, null],
+      [{ type: 'p', color: 'w' }, { type: 'p', color: 'w' }, { type: 'p', color: 'w' }, null, null, { type: 'p', color: 'w' }, { type: 'p', color: 'w' }, { type: 'p', color: 'w' }],
+      [null, null, null, { type: 'q', color: 'w' }, null, { type: 'r', color: 'w' }, { type: 'k', color: 'w' }, null]
+    ] as Piece[][],
+    solution: { from: { row: 7, col: 3 }, to: { row: 0, col: 3 } },
+    hint: "Sometimes you need to sacrifice your most powerful piece!",
+    description: "White to move - Mate in 2"
   }
 ];
 
@@ -105,6 +248,24 @@ const ChessGame: React.FC = () => {
   const [currentPuzzle, setCurrentPuzzle] = useState(0);
   const [puzzleStatus, setPuzzleStatus] = useState<'solving' | 'correct' | 'incorrect'>('solving');
   const [puzzleAttempts, setPuzzleAttempts] = useState(0);
+  const [boardSize, setBoardSize] = useState(() => {
+    const screenWidth = typeof window !== 'undefined' ? window.innerWidth : 480;
+    return Math.floor(Math.min(screenWidth - 40, 480) / 8) * 8;
+  });
+
+  // Calculate board size on mount and resize
+  useEffect(() => {
+    const calculateBoardSize = () => {
+      const screenWidth = window.innerWidth;
+      const maxBoardSize = Math.min(screenWidth - 40, 480);
+      setBoardSize(Math.floor(maxBoardSize / 8) * 8); // Ensure it's divisible by 8
+    };
+
+    calculateBoardSize();
+    window.addEventListener('resize', calculateBoardSize);
+    
+    return () => window.removeEventListener('resize', calculateBoardSize);
+  }, []);
 
   // Get piece symbol
   const getPieceSymbol = (piece: Piece): string => {
@@ -339,16 +500,17 @@ const ChessGame: React.FC = () => {
     // Track captured piece
     if (capturedPiece) {
       const capturedBy = piece.color;
+      const capturedByKey = capturedBy === 'w' ? 'white' : 'black';
       setCapturedPieces(prev => ({
         ...prev,
-        [capturedBy === 'w' ? 'white' : 'black']: [...prev[capturedBy === 'w' ? 'white' : 'black'], capturedPiece]
+        [capturedByKey]: [...prev[capturedByKey], capturedPiece]
       }));
       
       // Update score
       const points = pieceValues[capturedPiece.type];
       setScore(prev => ({
         ...prev,
-        [capturedBy === 'w' ? 'white' : 'black']: prev[capturedBy === 'w' ? 'white' : 'black'] + points
+        [capturedByKey]: prev[capturedByKey] + points
       }));
     }
     
@@ -622,13 +784,15 @@ const ChessGame: React.FC = () => {
     const isPossibleMove = possibleMoves.some(move => move.row === row && move.col === col);
     const kingSquare = piece?.type === 'k' && piece.color === currentTurn && isInCheck;
     
+    const squareSize = boardSize / 8;
+    
     return (
       <div
         key={`${row}-${col}`}
         onClick={() => handleSquareClick(row, col)}
         style={{
-          width: '60px',
-          height: '60px',
+          width: `${squareSize}px`,
+          height: `${squareSize}px`,
           backgroundColor: kingSquare ? '#FF6B6B' : (isLight ? '#EEEED2' : '#769656'),
           display: 'flex',
           alignItems: 'center',
@@ -641,7 +805,7 @@ const ChessGame: React.FC = () => {
       >
         {piece && (
           <span style={{ 
-            fontSize: '40px', 
+            fontSize: `${squareSize * 0.65}px`, 
             userSelect: 'none',
             color: piece.color === 'w' ? '#FFFFFF' : '#000000',
             textShadow: piece.color === 'w' 
@@ -655,8 +819,8 @@ const ChessGame: React.FC = () => {
           <div
             style={{
               position: 'absolute',
-              width: piece ? '100%' : '20px',
-              height: piece ? '100%' : '20px',
+              width: piece ? '100%' : `${squareSize * 0.3}px`,
+              height: piece ? '100%' : `${squareSize * 0.3}px`,
               backgroundColor: piece ? 'transparent' : 'rgba(0, 0, 0, 0.3)',
               border: piece ? '3px solid #F7F769' : 'none',
               borderRadius: piece ? '0' : '50%',
@@ -677,22 +841,24 @@ const ChessGame: React.FC = () => {
         backgroundColor: '#2C3E50', 
         display: 'flex', 
         alignItems: 'center', 
-        justifyContent: 'center' 
+        justifyContent: 'center',
+        padding: '20px'
       }}>
-        <div style={{ textAlign: 'center', color: 'white' }}>
-          <h1 style={{ fontSize: '48px', marginBottom: '40px' }}>♟️ Quick Chess</h1>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', alignItems: 'center' }}>
+        <div style={{ textAlign: 'center', color: 'white', width: '100%', maxWidth: '400px' }}>
+          <h1 style={{ fontSize: '36px', marginBottom: '30px' }}>♟️ Quick Chess</h1>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '15px', alignItems: 'center' }}>
             <button
               onClick={() => startGame('ai')}
               style={{
-                padding: '20px 40px',
-                fontSize: '20px',
+                padding: '15px 30px',
+                fontSize: '18px',
                 backgroundColor: '#3498DB',
                 color: 'white',
                 border: 'none',
                 borderRadius: '10px',
                 cursor: 'pointer',
-                width: '250px'
+                width: '100%',
+                maxWidth: '250px'
               }}
             >
               🤖 Play vs AI
@@ -700,14 +866,15 @@ const ChessGame: React.FC = () => {
             <button
               onClick={() => startGame('friend')}
               style={{
-                padding: '20px 40px',
-                fontSize: '20px',
+                padding: '15px 30px',
+                fontSize: '18px',
                 backgroundColor: '#27AE60',
                 color: 'white',
                 border: 'none',
                 borderRadius: '10px',
                 cursor: 'pointer',
-                width: '250px'
+                width: '100%',
+                maxWidth: '250px'
               }}
             >
               👥 Pass & Play
@@ -715,14 +882,15 @@ const ChessGame: React.FC = () => {
             <button
               onClick={() => startGame('puzzle')}
               style={{
-                padding: '20px 40px',
-                fontSize: '20px',
+                padding: '15px 30px',
+                fontSize: '18px',
                 backgroundColor: '#9B59B6',
                 color: 'white',
                 border: 'none',
                 borderRadius: '10px',
                 cursor: 'pointer',
-                width: '250px'
+                width: '100%',
+                maxWidth: '250px'
               }}
             >
               🧩 Puzzles
@@ -741,30 +909,52 @@ const ChessGame: React.FC = () => {
       <div style={{ 
         minHeight: '100vh', 
         backgroundColor: '#34495E', 
-        padding: '20px',
+        padding: '10px',
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center'
       }}>
         <div style={{ 
           backgroundColor: '#2C3E50', 
-          padding: '20px', 
+          padding: '15px', 
           borderRadius: '10px',
-          boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)'
+          boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
+          width: '100%',
+          maxWidth: '600px'
         }}>
           {/* Header */}
           <div style={{ 
             color: 'white', 
-            marginBottom: '20px', 
+            marginBottom: '15px', 
             textAlign: 'center' 
           }}>
-            <h2 style={{ margin: '0 0 10px 0' }}>
+            <h2 style={{ margin: '0 0 10px 0', fontSize: '24px' }}>
               🧩 Puzzle {currentPuzzle + 1} of {chessPuzzles.length}
             </h2>
-            <h3 style={{ margin: '0 0 10px 0', color: '#9B59B6' }}>
+            <h3 style={{ margin: '0 0 10px 0', color: '#9B59B6', fontSize: '20px' }}>
               {puzzle.name}
             </h3>
-            <div style={{ fontSize: '18px' }}>
+            <div style={{ fontSize: '14px', marginBottom: '5px' }}>
+              <span style={{ 
+                padding: '4px 8px', 
+                borderRadius: '4px', 
+                backgroundColor: puzzle.difficulty === 'beginner' ? '#27AE60' : 
+                               puzzle.difficulty === 'intermediate' ? '#F39C12' : '#E74C3C',
+                fontSize: '12px',
+                marginRight: '10px'
+              }}>
+                {puzzle.difficulty.charAt(0).toUpperCase() + puzzle.difficulty.slice(1)}
+              </span>
+              <span style={{ 
+                padding: '4px 8px', 
+                borderRadius: '4px', 
+                backgroundColor: '#34495E',
+                fontSize: '12px'
+              }}>
+                {puzzle.category.charAt(0).toUpperCase() + puzzle.category.slice(1)}
+              </span>
+            </div>
+            <div style={{ fontSize: '16px', marginTop: '10px' }}>
               {puzzle.description}
             </div>
           </div>
@@ -774,11 +964,11 @@ const ChessGame: React.FC = () => {
             <div style={{
               backgroundColor: '#27AE60',
               color: 'white',
-              padding: '15px',
+              padding: '10px',
               borderRadius: '5px',
-              marginBottom: '20px',
+              marginBottom: '15px',
               textAlign: 'center',
-              fontSize: '20px',
+              fontSize: '18px',
               fontWeight: 'bold'
             }}>
               ✅ Correct! Well done!
@@ -789,11 +979,11 @@ const ChessGame: React.FC = () => {
             <div style={{
               backgroundColor: '#E74C3C',
               color: 'white',
-              padding: '15px',
+              padding: '10px',
               borderRadius: '5px',
-              marginBottom: '20px',
+              marginBottom: '15px',
               textAlign: 'center',
-              fontSize: '18px'
+              fontSize: '16px'
             }}>
               ❌ Not quite. Try again!
             </div>
@@ -801,38 +991,50 @@ const ChessGame: React.FC = () => {
           
           {/* Chess board */}
           <div style={{ 
-            display: 'grid', 
-            gridTemplateColumns: 'repeat(8, 60px)',
-            gap: '0',
-            border: '2px solid #1A252F',
-            boxShadow: '0 2px 10px rgba(0, 0, 0, 0.3)'
+            display: 'flex',
+            justifyContent: 'center',
+            marginBottom: '15px'
           }}>
-            {board.map((row, rowIndex) =>
-              row.map((_, colIndex) => renderSquare(rowIndex, colIndex))
-            )}
+            <div style={{ 
+              display: 'grid', 
+              gridTemplateColumns: `repeat(8, ${boardSize / 8}px)`,
+              gap: '0',
+              border: '2px solid #1A252F',
+              boxShadow: '0 2px 10px rgba(0, 0, 0, 0.3)'
+            }}>
+              {board.map((row, rowIndex) =>
+                row.map((_, colIndex) => renderSquare(rowIndex, colIndex))
+              )}
+            </div>
           </div>
           
           {/* Hint */}
           {puzzleAttempts > 1 && puzzleStatus === 'solving' && (
             <div style={{
-              marginTop: '20px',
+              marginBottom: '15px',
               padding: '10px',
               backgroundColor: '#F39C12',
               color: 'white',
               borderRadius: '5px',
-              textAlign: 'center'
+              textAlign: 'center',
+              fontSize: '14px'
             }}>
               💡 Hint: {puzzle.hint}
             </div>
           )}
           
           {/* Controls */}
-          <div style={{ marginTop: '20px', textAlign: 'center', display: 'flex', gap: '10px', justifyContent: 'center', flexWrap: 'wrap' }}>
+          <div style={{ 
+            display: 'flex', 
+            gap: '10px', 
+            justifyContent: 'center', 
+            flexWrap: 'wrap' 
+          }}>
             <button
               onClick={previousPuzzle}
               style={{
-                padding: '10px 20px',
-                fontSize: '16px',
+                padding: '10px 15px',
+                fontSize: '14px',
                 backgroundColor: '#95A5A6',
                 color: 'white',
                 border: 'none',
@@ -846,8 +1048,8 @@ const ChessGame: React.FC = () => {
               <button
                 onClick={resetGame}
                 style={{
-                  padding: '10px 20px',
-                  fontSize: '16px',
+                  padding: '10px 15px',
+                  fontSize: '14px',
                   backgroundColor: '#3498DB',
                   color: 'white',
                   border: 'none',
@@ -861,8 +1063,8 @@ const ChessGame: React.FC = () => {
             <button
               onClick={() => setGameMode('menu')}
               style={{
-                padding: '10px 20px',
-                fontSize: '16px',
+                padding: '10px 15px',
+                fontSize: '14px',
                 backgroundColor: '#E74C3C',
                 color: 'white',
                 border: 'none',
@@ -876,8 +1078,8 @@ const ChessGame: React.FC = () => {
               <button
                 onClick={nextPuzzle}
                 style={{
-                  padding: '10px 20px',
-                  fontSize: '16px',
+                  padding: '10px 15px',
+                  fontSize: '14px',
                   backgroundColor: '#27AE60',
                   color: 'white',
                   border: 'none',
@@ -895,6 +1097,8 @@ const ChessGame: React.FC = () => {
   }
 
   // Game screen
+  if (!boardSize) return null; // Wait for board size calculation
+  
   return (
     <div style={{ 
       minHeight: '100vh', 
