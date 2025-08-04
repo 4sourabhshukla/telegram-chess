@@ -31,8 +31,8 @@ const ChessBoard: React.FC<ChessBoardProps> = ({
 }) => {
   const [boardSize, setBoardSize] = useState(() => {
     const screenWidth = typeof window !== 'undefined' ? window.innerWidth : 360;
-    const containerPadding = 40; // Padding for the container
-    const maxSize = Math.min(screenWidth - containerPadding, 400); // Max 400px
+    const containerPadding = 40; //Padding for the container
+    const maxSize = Math.min(screenWidth - containerPadding, 500); //Max 500px for consistent sizing
     return Math.floor(maxSize / 8) * 8; // Ensure divisible by 8
   });
 
@@ -47,7 +47,7 @@ const ChessBoard: React.FC<ChessBoardProps> = ({
 
     calculateBoardSize();
     window.addEventListener('resize', calculateBoardSize);
-    
+
     return () => window.removeEventListener('resize', calculateBoardSize);
   }, []);
 
@@ -64,9 +64,9 @@ const ChessBoard: React.FC<ChessBoardProps> = ({
     const isSelected = selectedSquare?.row === row && selectedSquare?.col === col;
     const isPossibleMove = possibleMoves.some(move => move.row === row && move.col === col);
     const kingInCheck = isInCheck && piece?.type === 'k' && piece.color === currentTurn;
-    
+
     const squareSize = boardSize / 8;
-    
+
     return (
       <div
         key={`${row}-${col}`}
@@ -86,13 +86,13 @@ const ChessBoard: React.FC<ChessBoardProps> = ({
         }}
       >
         {piece && (
-          <span style={{ 
-            fontSize: `${squareSize * 0.65}px`, 
+          <span style={{
+            fontSize: `${squareSize * 0.65}px`,
             userSelect: 'none',
             lineHeight: 1,
             color: piece.color === 'w' ? '#FFFFFF' : '#000000',
-            textShadow: piece.color === 'w' 
-              ? '0 0 3px #000, 0 0 5px #000' 
+            textShadow: piece.color === 'w'
+              ? '0 0 3px #000, 0 0 5px #000'
               : '0 0 3px #FFF, 0 0 5px #FFF'
           }}>
             {getPieceSymbol(piece)}
@@ -118,7 +118,7 @@ const ChessBoard: React.FC<ChessBoardProps> = ({
   };
 
   return (
-    <div style={{ 
+    <div style={{
       display: 'flex',
       justifyContent: 'center',
       alignItems: 'center',
