@@ -441,9 +441,9 @@ const ChessGame: React.FC = () => {
     });
     
     // Sort by score and pick one of the best
-    evaluatedMoves.sort((a, b) => b.score - a.score);
+    evaluatedMoves.sort((a: { score: number; }, b: { score: number; }) => b.score - a.score);
     const bestScore = evaluatedMoves[0].score;
-    const bestMoves = evaluatedMoves.filter(m => m.score === bestScore);
+    const bestMoves = evaluatedMoves.filter((m: { score: any; }) => m.score === bestScore);
     const selectedMove = bestMoves[Math.floor(Math.random() * bestMoves.length)].move;
     
     return { from: selectedMove.from, to: selectedMove.to };
