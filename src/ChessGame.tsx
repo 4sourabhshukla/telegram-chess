@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import ChessBoard from './ChessBoard';
 
 // Types
 type PieceType = 'p' | 'n' | 'b' | 'r' | 'q' | 'k';
@@ -6,6 +7,12 @@ type PieceColor = 'w' | 'b';
 type Piece = { type: PieceType; color: PieceColor } | null;
 type Square = { row: number; col: number };
 type Move = { from: Square; to: Square; score?: number };
+
+// Piece Unicode symbols
+const pieceSymbols: Record<string, string> = {
+  'wp': '♙', 'wn': '♘', 'wb': '♗', 'wr': '♖', 'wq': '♕', 'wk': '♔',
+  'bp': '♟', 'bn': '♞', 'bb': '♝', 'br': '♜', 'bq': '♛', 'bk': '♚'
+};
 
 // Initial board setup
 const createInitialBoard = (): Piece[][] => [
@@ -24,12 +31,6 @@ const createInitialBoard = (): Piece[][] => [
     { type: 'k', color: 'w' }, { type: 'b', color: 'w' }, { type: 'n', color: 'w' }, { type: 'r', color: 'w' }
   ]
 ];
-
-// Piece symbols
-const pieceSymbols: Record<string, string> = {
-  'wp': '♙', 'wn': '♘', 'wb': '♗', 'wr': '♖', 'wq': '♕', 'wk': '♔',
-  'bp': '♟', 'bn': '♞', 'bb': '♝', 'br': '♜', 'bq': '♛', 'bk': '♚'
-};
 
 // Piece values for AI
 const pieceValues: Record<PieceType, number> = {
@@ -248,26 +249,8 @@ const ChessGame: React.FC = () => {
   const [currentPuzzle, setCurrentPuzzle] = useState(0);
   const [puzzleStatus, setPuzzleStatus] = useState<'solving' | 'correct' | 'incorrect'>('solving');
   const [puzzleAttempts, setPuzzleAttempts] = useState(0);
-  const [boardSize, setBoardSize] = useState(() => {
-    const screenWidth = typeof window !== 'undefined' ? window.innerWidth : 480;
-    return Math.floor(Math.min(screenWidth - 40, 480) / 8) * 8;
-  });
 
-  // Calculate board size on mount and resize
-  useEffect(() => {
-    const calculateBoardSize = () => {
-      const screenWidth = window.innerWidth;
-      const maxBoardSize = Math.min(screenWidth - 40, 480);
-      setBoardSize(Math.floor(maxBoardSize / 8) * 8); // Ensure it's divisible by 8
-    };
-
-    calculateBoardSize();
-    window.addEventListener('resize', calculateBoardSize);
-    
-    return () => window.removeEventListener('resize', calculateBoardSize);
-  }, []);
-
-  // Get piece symbol
+  // Get piece symbol (for captured pieces display)
   const getPieceSymbol = (piece: Piece): string => {
     if (!piece) return '';
     return pieceSymbols[`${piece.color}${piece.type}`] || '';
@@ -776,63 +759,6 @@ const ChessGame: React.FC = () => {
     }
   };
 
-  // Render square
-  const renderSquare = (row: number, col: number) => {
-    const piece = board[row][col];
-    const isLight = (row + col) % 2 === 0;
-    const isSelected = selectedSquare?.row === row && selectedSquare?.col === col;
-    const isPossibleMove = possibleMoves.some(move => move.row === row && move.col === col);
-    const kingSquare = piece?.type === 'k' && piece.color === currentTurn && isInCheck;
-    
-    const squareSize = boardSize / 8;
-    
-    return (
-      <div
-        key={`${row}-${col}`}
-        onClick={() => handleSquareClick(row, col)}
-        style={{
-          width: `${squareSize}px`,
-          height: `${squareSize}px`,
-          backgroundColor: kingSquare ? '#FF6B6B' : (isLight ? '#EEEED2' : '#769656'),
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          cursor: 'pointer',
-          position: 'relative',
-          outline: isSelected ? '3px solid #F7F769' : 'none',
-          outlineOffset: '-3px'
-        }}
-      >
-        {piece && (
-          <span style={{ 
-            fontSize: `${squareSize * 0.65}px`, 
-            userSelect: 'none',
-            color: piece.color === 'w' ? '#FFFFFF' : '#000000',
-            textShadow: piece.color === 'w' 
-              ? '0 0 3px #000, 0 0 5px #000, 0 0 7px #000' 
-              : '0 0 3px #FFF, 0 0 5px #FFF, 0 0 7px #FFF'
-          }}>
-            {getPieceSymbol(piece)}
-          </span>
-        )}
-        {isPossibleMove && (
-          <div
-            style={{
-              position: 'absolute',
-              width: piece ? '100%' : `${squareSize * 0.3}px`,
-              height: piece ? '100%' : `${squareSize * 0.3}px`,
-              backgroundColor: piece ? 'transparent' : 'rgba(0, 0, 0, 0.3)',
-              border: piece ? '3px solid #F7F769' : 'none',
-              borderRadius: piece ? '0' : '50%',
-              opacity: 0.9,
-              pointerEvents: 'none'
-            }}
-          />
-        )}
-      </div>
-    );
-  };
-
   // Menu screen
   if (gameMode === 'menu') {
     return (
@@ -920,7 +846,8 @@ const ChessGame: React.FC = () => {
           borderRadius: '10px',
           boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
           width: '100%',
-          maxWidth: '600px'
+          maxWidth: '600px',
+          boxSizing: 'border-box'
         }}>
           {/* Header */}
           <div style={{ 
@@ -989,24 +916,15 @@ const ChessGame: React.FC = () => {
             </div>
           )}
           
-          {/* Chess board */}
-          <div style={{ 
-            display: 'flex',
-            justifyContent: 'center',
-            marginBottom: '15px'
-          }}>
-            <div style={{ 
-              display: 'grid', 
-              gridTemplateColumns: `repeat(8, ${boardSize / 8}px)`,
-              gap: '0',
-              border: '2px solid #1A252F',
-              boxShadow: '0 2px 10px rgba(0, 0, 0, 0.3)'
-            }}>
-              {board.map((row, rowIndex) =>
-                row.map((_, colIndex) => renderSquare(rowIndex, colIndex))
-              )}
-            </div>
-          </div>
+          {/* Chess board using ChessBoard component */}
+          <ChessBoard
+            board={board}
+            selectedSquare={selectedSquare}
+            possibleMoves={possibleMoves}
+            isInCheck={isInCheck}
+            currentTurn={currentTurn}
+            onSquareClick={handleSquareClick}
+          />
           
           {/* Hint */}
           {puzzleAttempts > 1 && puzzleStatus === 'solving' && (
@@ -1096,9 +1014,7 @@ const ChessGame: React.FC = () => {
     );
   }
 
-  // Game screen
-  if (!boardSize) return null; // Wait for board size calculation
-  
+  // Game screen - using ChessBoard component
   return (
     <div style={{ 
       minHeight: '100vh', 
@@ -1114,7 +1030,9 @@ const ChessGame: React.FC = () => {
         borderRadius: '10px',
         boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
         display: 'flex',
-        gap: '30px'
+        gap: '30px',
+        flexWrap: 'wrap',
+        justifyContent: 'center'
       }}>
         {/* Left side - Captured by Black */}
         <div style={{ 
@@ -1187,18 +1105,15 @@ const ChessGame: React.FC = () => {
             </div>
           )}
           
-          {/* Chess board */}
-          <div style={{ 
-            display: 'grid', 
-            gridTemplateColumns: 'repeat(8, 60px)',
-            gap: '0',
-            border: '2px solid #1A252F',
-            boxShadow: '0 2px 10px rgba(0, 0, 0, 0.3)'
-          }}>
-            {board.map((row, rowIndex) =>
-              row.map((_, colIndex) => renderSquare(rowIndex, colIndex))
-            )}
-          </div>
+          {/* Chess board using ChessBoard component */}
+          <ChessBoard
+            board={board}
+            selectedSquare={selectedSquare}
+            possibleMoves={possibleMoves}
+            isInCheck={isInCheck}
+            currentTurn={currentTurn}
+            onSquareClick={handleSquareClick}
+          />
           
           {/* Controls */}
           <div style={{ marginTop: '20px', textAlign: 'center' }}>
