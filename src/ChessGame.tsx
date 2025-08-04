@@ -1,12 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import ChessBoard from './ChessBoard';
 
+// TypeScript declaration for chess.js global
+declare global {
+  interface Window {
+    Chess: any;
+  }
+}
+
 // Types
 type PieceType = 'p' | 'n' | 'b' | 'r' | 'q' | 'k';
 type PieceColor = 'w' | 'b';
 type Piece = { type: PieceType; color: PieceColor } | null;
 type Square = { row: number; col: number };
-type Move = { from: Square; to: Square; score?: number };
 
 // Piece Unicode symbols
 const pieceSymbols: Record<string, string> = {
@@ -14,48 +20,52 @@ const pieceSymbols: Record<string, string> = {
   'bp': '♟', 'bn': '♞', 'bb': '♝', 'br': '♜', 'bq': '♛', 'bk': '♚'
 };
 
-// Initial board setup
-const createInitialBoard = (): Piece[][] => [
-  [
-    { type: 'r', color: 'b' }, { type: 'n', color: 'b' }, { type: 'b', color: 'b' }, { type: 'q', color: 'b' },
-    { type: 'k', color: 'b' }, { type: 'b', color: 'b' }, { type: 'n', color: 'b' }, { type: 'r', color: 'b' }
-  ],
-  Array(8).fill(null).map(() => ({ type: 'p' as PieceType, color: 'b' as PieceColor })),
-  Array(8).fill(null),
-  Array(8).fill(null),
-  Array(8).fill(null),
-  Array(8).fill(null),
-  Array(8).fill(null).map(() => ({ type: 'p' as PieceType, color: 'w' as PieceColor })),
-  [
-    { type: 'r', color: 'w' }, { type: 'n', color: 'w' }, { type: 'b', color: 'w' }, { type: 'q', color: 'w' },
-    { type: 'k', color: 'w' }, { type: 'b', color: 'w' }, { type: 'n', color: 'w' }, { type: 'r', color: 'w' }
-  ]
-];
-
 // Piece values for AI
 const pieceValues: Record<PieceType, number> = {
   'p': 1, 'n': 3, 'b': 3, 'r': 5, 'q': 9, 'k': 100
 };
 
-// Chess puzzles - Extended collection
+// Convert chess.js square notation (e.g., 'e4') to board indices
+const squareToIndices = (square: string): Square => {
+  const col = square.charCodeAt(0) - 'a'.charCodeAt(0);
+  const row = 8 - parseInt(square[1]);
+  return { row, col };
+};
+
+// Convert board indices to chess.js square notation
+const indicesToSquare = (row: number, col: number): string => {
+  return `${String.fromCharCode('a'.charCodeAt(0) + col)}${8 - row}`;
+};
+
+// Convert chess.js board to our board format
+const convertChessJSBoard = (chess: any): Piece[][] => {
+  const board: Piece[][] = Array(8).fill(null).map(() => Array(8).fill(null));
+  
+  for (let row = 0; row < 8; row++) {
+    for (let col = 0; col < 8; col++) {
+      const square = indicesToSquare(row, col);
+      const piece = chess.get(square);
+      if (piece) {
+        board[row][col] = {
+          type: piece.type as PieceType,
+          color: piece.color as PieceColor
+        };
+      }
+    }
+  }
+  
+  return board;
+};
+
+// Chess puzzles
 const chessPuzzles = [
-  // Beginner Puzzles
   {
     id: 1,
     name: "Back Rank Mate",
     category: 'checkmate',
     difficulty: 'beginner',
-    fen: [
-      [null, null, null, null, { type: 'r', color: 'b' }, null, { type: 'k', color: 'b' }, null],
-      [null, null, null, null, null, { type: 'p', color: 'b' }, { type: 'p', color: 'b' }, { type: 'p', color: 'b' }],
-      [null, null, null, null, null, null, null, null],
-      [null, null, null, null, null, null, null, null],
-      [null, null, null, null, null, null, null, null],
-      [null, null, null, { type: 'q', color: 'w' }, null, null, null, null],
-      [null, null, null, null, null, { type: 'p', color: 'w' }, { type: 'p', color: 'w' }, { type: 'p', color: 'w' }],
-      [null, null, null, null, null, null, { type: 'k', color: 'w' }, null]
-    ] as Piece[][],
-    solution: { from: { row: 5, col: 3 }, to: { row: 0, col: 3 } },
+    fen: "3r1k1/5ppp/8/8/3Q4/8/5PPP/6K1 w - - 0 1",
+    solution: { from: "d4", to: "d8" },
     hint: "Look for a back rank checkmate!",
     description: "White to move - Mate in 1"
   },
@@ -64,17 +74,8 @@ const chessPuzzles = [
     name: "Queen and King Mate",
     category: 'checkmate',
     difficulty: 'beginner',
-    fen: [
-      [null, null, null, null, null, null, null, { type: 'k', color: 'b' }],
-      [null, null, null, null, null, null, null, null],
-      [null, null, null, null, null, { type: 'k', color: 'w' }, null, null],
-      [null, null, null, null, null, null, null, null],
-      [null, null, null, null, null, null, null, null],
-      [null, { type: 'q', color: 'w' }, null, null, null, null, null, null],
-      [null, null, null, null, null, null, null, null],
-      [null, null, null, null, null, null, null, null]
-    ] as Piece[][],
-    solution: { from: { row: 5, col: 1 }, to: { row: 0, col: 6 } },
+    fen: "7k/8/5K2/8/8/1Q6/8/8 w - - 0 1",
+    solution: { from: "b3", to: "g8" },
     hint: "Drive the king to the edge and deliver mate!",
     description: "White to move - Mate in 1"
   },
@@ -83,17 +84,8 @@ const chessPuzzles = [
     name: "Smothered Mate",
     category: 'checkmate',
     difficulty: 'intermediate',
-    fen: [
-      [null, null, null, null, null, { type: 'r', color: 'b' }, { type: 'k', color: 'b' }, null],
-      [null, null, null, null, null, { type: 'p', color: 'b' }, { type: 'p', color: 'b' }, { type: 'p', color: 'b' }],
-      [null, null, null, null, null, null, { type: 'n', color: 'w' }, null],
-      [null, null, null, null, null, null, null, null],
-      [null, null, null, null, null, null, null, null],
-      [null, null, null, null, null, null, null, null],
-      [null, null, null, null, null, null, null, null],
-      [null, null, null, null, null, null, { type: 'k', color: 'w' }, null]
-    ] as Piece[][],
-    solution: { from: { row: 2, col: 6 }, to: { row: 1, col: 4 } },
+    fen: "5rk1/5ppp/6N1/8/8/8/8/6K1 w - - 0 1",
+    solution: { from: "g6", to: "e7" },
     hint: "The knight can deliver a special mate when the king is trapped by its own pieces!",
     description: "White to move - Mate in 1"
   },
@@ -102,138 +94,109 @@ const chessPuzzles = [
     name: "Fork Attack",
     category: 'tactics',
     difficulty: 'beginner',
-    fen: [
-      [null, null, null, { type: 'r', color: 'b' }, null, { type: 'r', color: 'b' }, { type: 'k', color: 'b' }, null],
-      [{ type: 'p', color: 'b' }, { type: 'p', color: 'b' }, { type: 'p', color: 'b' }, null, null, { type: 'p', color: 'b' }, { type: 'p', color: 'b' }, { type: 'p', color: 'b' }],
-      [null, null, null, null, null, null, null, null],
-      [null, null, null, null, { type: 'p', color: 'b' }, null, null, null],
-      [null, null, null, null, { type: 'p', color: 'w' }, null, null, null],
-      [null, null, { type: 'n', color: 'w' }, null, null, null, null, null],
-      [{ type: 'p', color: 'w' }, { type: 'p', color: 'w' }, { type: 'p', color: 'w' }, null, null, { type: 'p', color: 'w' }, { type: 'p', color: 'w' }, { type: 'p', color: 'w' }],
-      [{ type: 'r', color: 'w' }, null, null, null, { type: 'k', color: 'w' }, null, null, { type: 'r', color: 'w' }]
-    ] as Piece[][],
-    solution: { from: { row: 5, col: 2 }, to: { row: 3, col: 3 } },
+    fen: "r2r2k1/ppp2ppp/8/4p3/4P3/2N5/PPP2PPP/R4RK1 w - - 0 1",
+    solution: { from: "c3", to: "d5" },
     hint: "Knights are great at attacking two pieces at once!",
     description: "White to move - Win material"
   },
   {
     id: 5,
-    name: "Pin and Win",
+    name: "Castling Defense",
     category: 'tactics',
-    difficulty: 'intermediate',
-    fen: [
-      [{ type: 'r', color: 'b' }, null, null, null, { type: 'k', color: 'b' }, null, null, { type: 'r', color: 'b' }],
-      [{ type: 'p', color: 'b' }, { type: 'p', color: 'b' }, { type: 'p', color: 'b' }, { type: 'b', color: 'b' }, null, { type: 'p', color: 'b' }, { type: 'p', color: 'b' }, { type: 'p', color: 'b' }],
-      [null, null, { type: 'n', color: 'b' }, null, null, null, null, null],
-      [null, null, null, null, { type: 'p', color: 'b' }, null, null, null],
-      [null, null, { type: 'b', color: 'w' }, null, { type: 'p', color: 'w' }, null, null, null],
-      [null, null, null, null, null, null, null, null],
-      [{ type: 'p', color: 'w' }, { type: 'p', color: 'w' }, { type: 'p', color: 'w' }, null, null, { type: 'p', color: 'w' }, { type: 'p', color: 'w' }, { type: 'p', color: 'w' }],
-      [{ type: 'r', color: 'w' }, null, null, { type: 'q', color: 'w' }, { type: 'k', color: 'w' }, null, null, { type: 'r', color: 'w' }]
-    ] as Piece[][],
-    solution: { from: { row: 4, col: 2 }, to: { row: 1, col: 5 } },
-    hint: "Pin the knight to the king and win material!",
-    description: "White to move - Win a piece"
+    difficulty: 'beginner',
+    fen: "r3k2r/ppp2ppp/8/3pp3/3PP3/8/PPP2PPP/R3K2R w KQkq - 0 1",
+    solution: { from: "e1", to: "g1" },
+    hint: "Castle to safety!",
+    description: "White to move - Castle kingside"
   },
   {
     id: 6,
-    name: "Discovered Attack",
+    name: "En Passant Capture",
     category: 'tactics',
     difficulty: 'intermediate',
-    fen: [
-      [null, null, null, { type: 'q', color: 'b' }, { type: 'k', color: 'b' }, null, null, { type: 'r', color: 'b' }],
-      [{ type: 'p', color: 'b' }, { type: 'p', color: 'b' }, null, null, null, { type: 'p', color: 'b' }, { type: 'p', color: 'b' }, { type: 'p', color: 'b' }],
-      [null, null, null, null, { type: 'p', color: 'b' }, null, null, null],
-      [null, null, null, { type: 'n', color: 'w' }, null, null, null, null],
-      [null, null, null, null, null, null, null, null],
-      [null, null, null, null, null, null, null, null],
-      [{ type: 'p', color: 'w' }, { type: 'p', color: 'w' }, null, { type: 'r', color: 'w' }, null, { type: 'p', color: 'w' }, { type: 'p', color: 'w' }, { type: 'p', color: 'w' }],
-      [null, null, null, null, { type: 'k', color: 'w' }, null, null, { type: 'r', color: 'w' }]
-    ] as Piece[][],
-    solution: { from: { row: 3, col: 3 }, to: { row: 2, col: 5 } },
-    hint: "Move the knight to discover an attack on the queen!",
-    description: "White to move - Win the queen"
+    fen: "rnbqkbnr/ppp2ppp/8/3pP3/8/8/PPPP1PPP/RNBQKBNR w KQkq d6 0 3",
+    solution: { from: "e5", to: "d6" },
+    hint: "Capture the pawn that just moved two squares!",
+    description: "White to move - En passant"
   },
   {
     id: 7,
     name: "Pawn Promotion",
     category: 'endgame',
     difficulty: 'beginner',
-    fen: [
-      [null, null, null, null, null, null, null, null],
-      [null, { type: 'p', color: 'w' }, null, null, null, null, { type: 'k', color: 'b' }, null],
-      [null, null, null, null, null, null, null, null],
-      [null, null, null, null, null, null, null, null],
-      [null, null, null, null, null, null, null, null],
-      [null, null, null, null, null, { type: 'k', color: 'w' }, null, null],
-      [null, null, null, null, null, null, null, null],
-      [null, null, null, null, null, null, null, null]
-    ] as Piece[][],
-    solution: { from: { row: 1, col: 1 }, to: { row: 0, col: 1 } },
-    hint: "Push the pawn to promote to a queen!",
+    fen: "8/1P4k1/8/8/8/5K2/8/8 w - - 0 1",
+    solution: { from: "b7", to: "b8" },
+    hint: "Push the pawn to promote!",
     description: "White to move - Promote and win"
-  },
-  {
-    id: 8,
-    name: "King and Pawn Endgame",
-    category: 'endgame',
-    difficulty: 'intermediate',
-    fen: [
-      [null, null, null, null, null, null, null, null],
-      [null, null, null, null, null, null, null, null],
-      [null, null, null, { type: 'k', color: 'b' }, null, null, null, null],
-      [null, null, { type: 'p', color: 'w' }, null, null, null, null, null],
-      [null, null, null, { type: 'k', color: 'w' }, null, null, null, null],
-      [null, null, null, null, null, null, null, null],
-      [null, null, null, null, null, null, null, null],
-      [null, null, null, null, null, null, null, null]
-    ] as Piece[][],
-    solution: { from: { row: 4, col: 3 }, to: { row: 3, col: 3 } },
-    hint: "The king must support the pawn's advance!",
-    description: "White to move - Win with proper technique"
-  },
-  {
-    id: 9,
-    name: "Rook Endgame Cut-off",
-    category: 'endgame',
-    difficulty: 'advanced',
-    fen: [
-      [null, null, null, null, { type: 'k', color: 'b' }, null, null, null],
-      [null, null, null, null, null, null, null, null],
-      [null, null, null, null, null, null, null, null],
-      [null, null, null, null, null, null, null, { type: 'p', color: 'w' }],
-      [null, null, null, null, null, null, { type: 'k', color: 'w' }, null],
-      [{ type: 'r', color: 'w' }, null, null, null, null, null, null, null],
-      [null, null, null, null, null, null, null, null],
-      [null, null, null, null, null, null, null, null]
-    ] as Piece[][],
-    solution: { from: { row: 5, col: 0 }, to: { row: 5, col: 4 } },
-    hint: "Cut off the enemy king from the pawn!",
-    description: "White to move - Secure the win"
-  },
-  {
-    id: 10,
-    name: "Queen Sacrifice for Mate",
-    category: 'checkmate',
-    difficulty: 'advanced',
-    fen: [
-      [{ type: 'r', color: 'b' }, null, null, null, { type: 'k', color: 'b' }, null, null, { type: 'r', color: 'b' }],
-      [{ type: 'p', color: 'b' }, { type: 'p', color: 'b' }, null, null, null, { type: 'p', color: 'b' }, { type: 'p', color: 'b' }, null],
-      [null, null, { type: 'n', color: 'b' }, null, null, null, null, { type: 'p', color: 'b' }],
-      [null, null, null, null, null, null, null, null],
-      [null, null, null, null, null, { type: 'b', color: 'w' }, null, null],
-      [null, null, null, null, null, null, null, null],
-      [{ type: 'p', color: 'w' }, { type: 'p', color: 'w' }, { type: 'p', color: 'w' }, null, null, { type: 'p', color: 'w' }, { type: 'p', color: 'w' }, { type: 'p', color: 'w' }],
-      [null, null, null, { type: 'q', color: 'w' }, null, { type: 'r', color: 'w' }, { type: 'k', color: 'w' }, null]
-    ] as Piece[][],
-    solution: { from: { row: 7, col: 3 }, to: { row: 0, col: 3 } },
-    hint: "Sometimes you need to sacrifice your most powerful piece!",
-    description: "White to move - Mate in 2"
   }
 ];
 
+// Promotion Modal Component
+interface PromotionModalProps {
+  color: PieceColor;
+  onSelect: (piece: string) => void;
+}
+
+const PromotionModal: React.FC<PromotionModalProps> = ({ color, onSelect }) => {
+  const pieces = [
+    { type: 'q', name: 'Queen' },
+    { type: 'r', name: 'Rook' },
+    { type: 'b', name: 'Bishop' },
+    { type: 'n', name: 'Knight' }
+  ];
+  
+  return (
+    <div style={{
+      position: 'fixed',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      backgroundColor: 'rgba(0, 0, 0, 0.7)',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      zIndex: 1000
+    }}>
+      <div style={{
+        backgroundColor: '#2C3E50',
+        padding: '20px',
+        borderRadius: '10px',
+        boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)'
+      }}>
+        <h3 style={{ color: 'white', marginBottom: '20px', textAlign: 'center' }}>
+          Choose Promotion Piece
+        </h3>
+        <div style={{ display: 'flex', gap: '10px' }}>
+          {pieces.map(piece => (
+            <button
+              key={piece.type}
+              onClick={() => onSelect(piece.type)}
+              style={{
+                padding: '10px',
+                fontSize: '48px',
+                backgroundColor: '#34495E',
+                border: 'none',
+                borderRadius: '5px',
+                cursor: 'pointer',
+                color: color === 'w' ? '#FFFFFF' : '#000000',
+                textShadow: color === 'w' 
+                  ? '0 0 3px #000' 
+                  : '0 0 3px #FFF'
+              }}
+            >
+              {pieceSymbols[`${color}${piece.type}`]}
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const ChessGame: React.FC = () => {
-  const [board, setBoard] = useState<Piece[][]>(createInitialBoard());
+  const [chess] = useState<any>(() => new window.Chess());
+  const [board, setBoard] = useState<Piece[][]>(() => convertChessJSBoard(chess));
   const [selectedSquare, setSelectedSquare] = useState<Square | null>(null);
   const [possibleMoves, setPossibleMoves] = useState<Square[]>([]);
   const [currentTurn, setCurrentTurn] = useState<PieceColor>('w');
@@ -249,364 +212,108 @@ const ChessGame: React.FC = () => {
   const [currentPuzzle, setCurrentPuzzle] = useState(0);
   const [puzzleStatus, setPuzzleStatus] = useState<'solving' | 'correct' | 'incorrect'>('solving');
   const [puzzleAttempts, setPuzzleAttempts] = useState(0);
+  const [promotionModal, setPromotionModal] = useState<{ from: string; to: string; color: PieceColor } | null>(null);
+  const [isAIThinking, setIsAIThinking] = useState(false);
 
-  // Get piece symbol (for captured pieces display)
+  // Update board and game state after moves
+  const updateGameState = () => {
+    setBoard(convertChessJSBoard(chess));
+    setCurrentTurn(chess.turn());
+    setIsInCheck(chess.in_check());
+    
+    // Check game over conditions
+    if (chess.game_over()) {
+      if (chess.in_checkmate()) {
+        setGameOver({
+          winner: chess.turn() === 'w' ? 'b' : 'w',
+          reason: 'Checkmate!'
+        });
+      } else if (chess.in_stalemate()) {
+        setGameOver({
+          winner: 'draw',
+          reason: 'Stalemate - Draw!'
+        });
+      } else if (chess.in_threefold_repetition()) {
+        setGameOver({
+          winner: 'draw',
+          reason: 'Draw by threefold repetition!'
+        });
+      } else if (chess.insufficient_material()) {
+        setGameOver({
+          winner: 'draw',
+          reason: 'Draw by insufficient material!'
+        });
+      } else if (chess.in_draw()) {
+        setGameOver({
+          winner: 'draw',
+          reason: 'Draw by 50-move rule!'
+        });
+      }
+    }
+  };
+
+  // Get piece symbol
   const getPieceSymbol = (piece: Piece): string => {
     if (!piece) return '';
     return pieceSymbols[`${piece.color}${piece.type}`] || '';
   };
 
-  // Find king position
-  const findKing = (board: Piece[][], color: PieceColor): Square | null => {
-    for (let row = 0; row < 8; row++) {
-      for (let col = 0; col < 8; col++) {
-        const piece = board[row][col];
-        if (piece && piece.type === 'k' && piece.color === color) {
-          return { row, col };
-        }
-      }
-    }
-    return null;
-  };
-
-  // Check if a square is attacked by enemy
-  const isSquareAttacked = (square: Square, byColor: PieceColor, board: Piece[][]): boolean => {
-    for (let row = 0; row < 8; row++) {
-      for (let col = 0; col < 8; col++) {
-        const piece = board[row][col];
-        if (piece && piece.color === byColor) {
-          const moves = getPossibleMovesWithoutCheckValidation({ row, col }, board);
-          if (moves.some(move => move.row === square.row && move.col === square.col)) {
-            return true;
-          }
-        }
-      }
-    }
-    return false;
-  };
-
-  // Check if king is in check
-  const isKingInCheck = (color: PieceColor, board: Piece[][]): boolean => {
-    const kingPos = findKing(board, color);
-    if (!kingPos) return false;
-    return isSquareAttacked(kingPos, color === 'w' ? 'b' : 'w', board);
-  };
-
-  // Simulate a move and check if it leaves king in check
-  const wouldMoveLeaveKingInCheck = (from: Square, to: Square, board: Piece[][]): boolean => {
-    const piece = board[from.row][from.col];
-    if (!piece) return true;
+  // Get possible moves for a square
+  const getPossibleMovesForSquare = (row: number, col: number): Square[] => {
+    const square = indicesToSquare(row, col);
+    const moves = chess.moves({ square, verbose: true });
     
-    // Create a copy of the board
-    const testBoard = board.map(row => [...row]);
-    
-    // Make the move
-    testBoard[to.row][to.col] = piece;
-    testBoard[from.row][from.col] = null;
-    
-    // Check if king is in check after the move
-    return isKingInCheck(piece.color, testBoard);
-  };
-
-  // Get possible moves without check validation (used for attack detection)
-  const getPossibleMovesWithoutCheckValidation = (from: Square, board: Piece[][]): Square[] => {
-    const piece = board[from.row][from.col];
-    if (!piece) return [];
-    
-    const moves: Square[] = [];
-    const { type, color } = piece;
-    
-    // Helper to check if a square is valid and empty or has enemy
-    const isValidSquare = (row: number, col: number): boolean => {
-      if (row < 0 || row > 7 || col < 0 || col > 7) return false;
-      const target = board[row][col];
-      return !target || target.color !== color;
-    };
-    
-    // Helper to add move if valid
-    const addMoveIfValid = (row: number, col: number): boolean => {
-      if (isValidSquare(row, col)) {
-        moves.push({ row, col });
-        return board[row][col] === null; // Continue if empty
-      }
-      return false;
-    };
-
-    switch (type) {
-      case 'p': // Pawn
-        const direction = color === 'w' ? -1 : 1;
-        const startRow = color === 'w' ? 6 : 1;
-        
-        // Move forward one square
-        if (board[from.row + direction]?.[from.col] === null) {
-          moves.push({ row: from.row + direction, col: from.col });
-          
-          // Move forward two squares from starting position
-          if (from.row === startRow && board[from.row + 2 * direction][from.col] === null) {
-            moves.push({ row: from.row + 2 * direction, col: from.col });
-          }
-        }
-        
-        // Capture diagonally
-        [-1, 1].forEach(offset => {
-          const newCol = from.col + offset;
-          if (newCol >= 0 && newCol <= 7) {
-            const target = board[from.row + direction]?.[newCol];
-            if (target && target.color !== color) {
-              moves.push({ row: from.row + direction, col: newCol });
-            }
-          }
-        });
-        break;
-
-      case 'n': // Knight
-        const knightMoves = [
-          [-2, -1], [-2, 1], [-1, -2], [-1, 2],
-          [1, -2], [1, 2], [2, -1], [2, 1]
-        ];
-        knightMoves.forEach(([rowOffset, colOffset]) => {
-          addMoveIfValid(from.row + rowOffset, from.col + colOffset);
-        });
-        break;
-
-      case 'b': // Bishop
-        // Diagonals
-        for (let i = 1; i < 8; i++) {
-          if (!addMoveIfValid(from.row + i, from.col + i)) break;
-        }
-        for (let i = 1; i < 8; i++) {
-          if (!addMoveIfValid(from.row + i, from.col - i)) break;
-        }
-        for (let i = 1; i < 8; i++) {
-          if (!addMoveIfValid(from.row - i, from.col + i)) break;
-        }
-        for (let i = 1; i < 8; i++) {
-          if (!addMoveIfValid(from.row - i, from.col - i)) break;
-        }
-        break;
-
-      case 'r': // Rook
-        // Vertical and horizontal
-        for (let i = 1; i < 8; i++) {
-          if (!addMoveIfValid(from.row + i, from.col)) break;
-        }
-        for (let i = 1; i < 8; i++) {
-          if (!addMoveIfValid(from.row - i, from.col)) break;
-        }
-        for (let i = 1; i < 8; i++) {
-          if (!addMoveIfValid(from.row, from.col + i)) break;
-        }
-        for (let i = 1; i < 8; i++) {
-          if (!addMoveIfValid(from.row, from.col - i)) break;
-        }
-        break;
-
-      case 'q': // Queen (combination of rook and bishop)
-        // All 8 directions
-        const queenDirections = [
-          [1, 0], [-1, 0], [0, 1], [0, -1],
-          [1, 1], [1, -1], [-1, 1], [-1, -1]
-        ];
-        queenDirections.forEach(([rowDir, colDir]) => {
-          for (let i = 1; i < 8; i++) {
-            if (!addMoveIfValid(from.row + i * rowDir, from.col + i * colDir)) break;
-          }
-        });
-        break;
-
-      case 'k': // King
-        for (let rowOffset = -1; rowOffset <= 1; rowOffset++) {
-          for (let colOffset = -1; colOffset <= 1; colOffset++) {
-            if (rowOffset === 0 && colOffset === 0) continue;
-            addMoveIfValid(from.row + rowOffset, from.col + colOffset);
-          }
-        }
-        break;
-    }
-    
-    return moves;
-  };
-
-  // Get valid moves (with check validation)
-  const getValidMoves = (from: Square, board: Piece[][]): Square[] => {
-    const possibleMoves = getPossibleMovesWithoutCheckValidation(from, board);
-    
-    // Filter out moves that would leave king in check
-    return possibleMoves.filter(to => !wouldMoveLeaveKingInCheck(from, to, board));
-  };
-
-  // Check if player has any legal moves
-  const hasLegalMoves = (color: PieceColor, board: Piece[][]): boolean => {
-    for (let row = 0; row < 8; row++) {
-      for (let col = 0; col < 8; col++) {
-        const piece = board[row][col];
-        if (piece && piece.color === color) {
-          const moves = getValidMoves({ row, col }, board);
-          if (moves.length > 0) return true;
-        }
-      }
-    }
-    return false;
-  };
-
-  // Check for checkmate or stalemate
-  const checkGameOver = (board: Piece[][], currentTurn: PieceColor) => {
-    const inCheck = isKingInCheck(currentTurn, board);
-    const hasLegalMove = hasLegalMoves(currentTurn, board);
-    
-    if (!hasLegalMove) {
-      if (inCheck) {
-        // Checkmate
-        setGameOver({ 
-          winner: currentTurn === 'w' ? 'b' : 'w', 
-          reason: 'Checkmate!' 
-        });
-      } else {
-        // Stalemate
-        setGameOver({ 
-          winner: 'draw', 
-          reason: 'Stalemate - Draw!' 
-        });
-      }
-    }
+    return moves.map((move: any) => squareToIndices(move.to));
   };
 
   // Make a move
-  const makeMove = (from: Square, to: Square) => {
-    const newBoard = board.map(row => [...row]);
-    const piece = newBoard[from.row][from.col];
-    const capturedPiece = newBoard[to.row][to.col];
-    
-    // Safety check
-    if (!piece) return;
-    
-    // Track captured piece
-    if (capturedPiece) {
-      const capturedBy = piece.color;
-      const capturedByKey = capturedBy === 'w' ? 'white' : 'black';
-      setCapturedPieces(prev => ({
-        ...prev,
-        [capturedByKey]: [...prev[capturedByKey], capturedPiece]
-      }));
+  const makeMove = (from: string, to: string, promotion?: string) => {
+    try {
+      const move = chess.move({ from, to, promotion });
+      if (!move) return false;
       
-      // Update score
-      const points = pieceValues[capturedPiece.type];
-      setScore(prev => ({
-        ...prev,
-        [capturedByKey]: prev[capturedByKey] + points
-      }));
+      // Track captured piece
+      if (move.captured) {
+        const capturedPiece: Piece = {
+          type: move.captured as PieceType,
+          color: move.color === 'w' ? 'b' : 'w'
+        };
+        const capturedBy = move.color === 'w' ? 'white' : 'black';
+        
+        setCapturedPieces(prev => ({
+          ...prev,
+          [capturedBy]: [...prev[capturedBy], capturedPiece]
+        }));
+        
+        // Update score
+        const points = pieceValues[capturedPiece.type];
+        setScore(prev => ({
+          ...prev,
+          [capturedBy]: prev[capturedBy] + points
+        }));
+      }
+      
+      // Update move history
+      setMoveHistory(prev => [...prev, move.san]);
+      
+      // Clear selection
+      setSelectedSquare(null);
+      setPossibleMoves([]);
+      
+      // Update game state
+      updateGameState();
+      return true;
+    } catch (e) {
+      console.error('Invalid move:', e);
+      return false;
     }
-    
-    // Move the piece
-    newBoard[to.row][to.col] = piece;
-    newBoard[from.row][from.col] = null;
-    
-    // Pawn promotion
-    if (piece.type === 'p') {
-      if ((piece.color === 'w' && to.row === 0) || (piece.color === 'b' && to.row === 7)) {
-        newBoard[to.row][to.col] = { type: 'q', color: piece.color };
-      }
-    }
-    
-    // Update state
-    setBoard(newBoard);
-    const nextTurn = currentTurn === 'w' ? 'b' : 'w';
-    setCurrentTurn(nextTurn);
-    setSelectedSquare(null);
-    setPossibleMoves([]);
-    
-    // Check if next player is in check
-    setIsInCheck(isKingInCheck(nextTurn, newBoard));
-    
-    // Check for game over
-    checkGameOver(newBoard, nextTurn);
-    
-    // Add to move history
-    const moveNotation = `${piece.type}${capturedPiece ? 'x' : ''}${String.fromCharCode(97 + to.col)}${8 - to.row}`;
-    setMoveHistory([...moveHistory, moveNotation]);
-  };
-
-  // Evaluate board position for AI
-  const evaluateBoard = (board: Piece[][]): number => {
-    let score = 0;
-    
-    for (let row = 0; row < 8; row++) {
-      for (let col = 0; col < 8; col++) {
-        const piece = board[row][col];
-        if (piece) {
-          const value = pieceValues[piece.type];
-          score += piece.color === 'b' ? value : -value;
-        }
-      }
-    }
-    
-    return score;
-  };
-
-  // Get best move for AI
-  const getBestMove = (board: Piece[][]): Move | null => {
-    const moves: Move[] = [];
-    
-    // Generate all possible moves
-    for (let row = 0; row < 8; row++) {
-      for (let col = 0; col < 8; col++) {
-        const piece = board[row][col];
-        if (piece && piece.color === 'b') {
-          const validMoves = getValidMoves({ row, col }, board);
-          validMoves.forEach(to => {
-            moves.push({ from: { row, col }, to });
-          });
-        }
-      }
-    }
-    
-    if (moves.length === 0) return null;
-    
-    // Evaluate each move
-    moves.forEach(move => {
-      const testBoard = board.map(row => [...row]);
-      const capturedPiece = testBoard[move.to.row][move.to.col];
-      
-      // Make the move on test board
-      testBoard[move.to.row][move.to.col] = testBoard[move.from.row][move.from.col];
-      testBoard[move.from.row][move.from.col] = null;
-      
-      // Calculate score
-      let score = evaluateBoard(testBoard);
-      
-      // Bonus for captures
-      if (capturedPiece) {
-        score += pieceValues[capturedPiece.type] * 10;
-      }
-      
-      // Bonus for checking the enemy king
-      if (isKingInCheck('w', testBoard)) {
-        score += 50;
-      }
-      
-      // Penalty if our piece can be captured
-      if (isSquareAttacked(move.to, 'w', testBoard)) {
-        const ourPiece = board[move.from.row][move.from.col];
-        if (ourPiece) {
-          score -= pieceValues[ourPiece.type] * 5;
-        }
-      }
-      
-      move.score = score;
-    });
-    
-    // Sort moves by score and pick one of the best
-    moves.sort((a, b) => (b.score || 0) - (a.score || 0));
-    const bestScore = moves[0].score;
-    const bestMoves = moves.filter(m => m.score === bestScore);
-    
-    // Return random best move for variety
-    return bestMoves[Math.floor(Math.random() * bestMoves.length)];
   };
 
   // Handle square click
   const handleSquareClick = (row: number, col: number) => {
-    if (gameOver) return;
+    if (gameOver || promotionModal || isAIThinking) return;
+    
+    const clickedSquare = indicesToSquare(row, col);
     
     // Puzzle mode
     if (gameMode === 'puzzle') {
@@ -615,23 +322,19 @@ const ChessGame: React.FC = () => {
       const puzzle = chessPuzzles[currentPuzzle];
       
       if (selectedSquare) {
+        const fromSquare = indicesToSquare(selectedSquare.row, selectedSquare.col);
         const isValidMove = possibleMoves.some(move => move.row === row && move.col === col);
         
         if (isValidMove) {
           // Check if this is the correct solution
-          const isCorrect = 
-            selectedSquare.row === puzzle.solution.from.row &&
-            selectedSquare.col === puzzle.solution.from.col &&
-            row === puzzle.solution.to.row &&
-            col === puzzle.solution.to.col;
+          const isCorrect = fromSquare === puzzle.solution.from && clickedSquare === puzzle.solution.to;
           
           if (isCorrect) {
-            makeMove(selectedSquare, { row, col });
+            makeMove(fromSquare, clickedSquare);
             setPuzzleStatus('correct');
           } else {
             setPuzzleStatus('incorrect');
             setPuzzleAttempts(prev => prev + 1);
-            // Reset selection after wrong move
             setTimeout(() => {
               setPuzzleStatus('solving');
               setSelectedSquare(null);
@@ -640,10 +343,10 @@ const ChessGame: React.FC = () => {
           }
         } else {
           // Select new piece
-          const piece = board[row][col];
+          const piece = chess.get(clickedSquare);
           if (piece && piece.color === 'w') {
             setSelectedSquare({ row, col });
-            setPossibleMoves(getValidMoves({ row, col }, board));
+            setPossibleMoves(getPossibleMovesForSquare(row, col));
           } else {
             setSelectedSquare(null);
             setPossibleMoves([]);
@@ -651,27 +354,36 @@ const ChessGame: React.FC = () => {
         }
       } else {
         // Select a piece
-        const piece = board[row][col];
+        const piece = chess.get(clickedSquare);
         if (piece && piece.color === 'w') {
           setSelectedSquare({ row, col });
-          setPossibleMoves(getValidMoves({ row, col }, board));
+          setPossibleMoves(getPossibleMovesForSquare(row, col));
         }
       }
       return;
     }
     
-    // Regular game modes (AI and friend)
+    // Regular game modes
     if (selectedSquare) {
+      const fromSquare = indicesToSquare(selectedSquare.row, selectedSquare.col);
       const isValidMove = possibleMoves.some(move => move.row === row && move.col === col);
       
       if (isValidMove) {
-        makeMove(selectedSquare, { row, col });
+        // Check if this is a pawn promotion
+        const piece = chess.get(fromSquare);
+        if (piece && piece.type === 'p' && 
+            ((piece.color === 'w' && row === 0) || (piece.color === 'b' && row === 7))) {
+          setPromotionModal({ from: fromSquare, to: clickedSquare, color: piece.color });
+        } else {
+          makeMove(fromSquare, clickedSquare);
+        }
       } else {
-        // Select new piece if it's the current player's
-        const piece = board[row][col];
-        if (piece && piece.color === currentTurn && (gameMode === 'friend' || (gameMode === 'ai' && currentTurn === 'w'))) {
+        // Select new piece
+        const piece = chess.get(clickedSquare);
+        if (piece && piece.color === chess.turn() && 
+            (gameMode === 'friend' || (gameMode === 'ai' && chess.turn() === 'w'))) {
           setSelectedSquare({ row, col });
-          setPossibleMoves(getValidMoves({ row, col }, board));
+          setPossibleMoves(getPossibleMovesForSquare(row, col));
         } else {
           setSelectedSquare(null);
           setPossibleMoves([]);
@@ -679,85 +391,170 @@ const ChessGame: React.FC = () => {
       }
     } else {
       // Select a piece
-      const piece = board[row][col];
-      if (piece && piece.color === currentTurn && (gameMode === 'friend' || (gameMode === 'ai' && currentTurn === 'w'))) {
+      const piece = chess.get(clickedSquare);
+      if (piece && piece.color === chess.turn() && 
+          (gameMode === 'friend' || (gameMode === 'ai' && chess.turn() === 'w'))) {
         setSelectedSquare({ row, col });
-        setPossibleMoves(getValidMoves({ row, col }, board));
+        setPossibleMoves(getPossibleMovesForSquare(row, col));
       }
     }
+  };
+
+  // Handle promotion
+  const handlePromotion = (piece: string) => {
+    if (!promotionModal) return;
+    
+    makeMove(promotionModal.from, promotionModal.to, piece);
+    setPromotionModal(null);
+  };
+
+  // Get best move for AI
+  const getBestMove = (): { from: string; to: string } | null => {
+    const moves = chess.moves({ verbose: true });
+    if (moves.length === 0) return null;
+    
+    // Evaluate each move
+    const evaluatedMoves = moves.map((move: any) => {
+      chess.move(move);
+      
+      let score = 0;
+      
+      // Material count
+      const board = chess.board();
+      for (let row of board) {
+        for (let square of row) {
+          if (square) {
+            const value = pieceValues[square.type as PieceType];
+            score += square.color === 'b' ? value : -value;
+          }
+        }
+      }
+      
+      // Bonuses
+      if (move.captured) score += pieceValues[move.captured as PieceType] * 10;
+      if (chess.in_check()) score += 50;
+      if (move.flags.includes('k') || move.flags.includes('q')) score += 30; // Castling
+      
+      chess.undo();
+      
+      return { move, score };
+    });
+    
+    // Sort by score and pick one of the best
+    evaluatedMoves.sort((a, b) => b.score - a.score);
+    const bestScore = evaluatedMoves[0].score;
+    const bestMoves = evaluatedMoves.filter(m => m.score === bestScore);
+    const selectedMove = bestMoves[Math.floor(Math.random() * bestMoves.length)].move;
+    
+    return { from: selectedMove.from, to: selectedMove.to };
+  };
+
+  // AI move
+  useEffect(() => {
+    if (gameMode !== 'ai' || currentTurn !== 'b' || gameOver || promotionModal || isAIThinking) return;
+    
+    setIsAIThinking(true);
+    const timer = setTimeout(() => {
+      const bestMove = getBestMove();
+      if (bestMove) {
+        // Check if AI needs to promote
+        const piece = chess.get(bestMove.from);
+        if (piece && piece.type === 'p') {
+          const toRow = squareToIndices(bestMove.to).row;
+          if (toRow === 7) {
+            makeMove(bestMove.from, bestMove.to, 'q'); // AI always promotes to queen
+            setIsAIThinking(false);
+            return;
+          }
+        }
+        makeMove(bestMove.from, bestMove.to);
+      }
+      setIsAIThinking(false);
+    }, 500);
+    
+    return () => {
+      clearTimeout(timer);
+      setIsAIThinking(false);
+    };
+  }, [currentTurn, gameMode, gameOver, promotionModal]);
+
+  // Reset game
+  const resetGame = () => {
+    setIsAIThinking(false);
+    
+    if (gameMode === 'puzzle') {
+      // Reset current puzzle
+      chess.load(chessPuzzles[currentPuzzle].fen);
+      setPuzzleStatus('solving');
+      setPuzzleAttempts(0);
+    } else {
+      // Reset regular game
+      chess.reset();
+      setCapturedPieces({ white: [], black: [] });
+      setScore({ white: 0, black: 0 });
+    }
+    
+    setSelectedSquare(null);
+    setPossibleMoves([]);
+    setMoveHistory([]);
+    setGameOver(null);
+    setPromotionModal(null);
+    
+    // Update game state
+    updateGameState();
+  };
+
+  // Start new game
+  const startGame = (mode: 'ai' | 'friend' | 'puzzle') => {
+    setGameMode(mode);
+    setIsAIThinking(false);
+    
+    if (mode === 'puzzle') {
+      chess.load(chessPuzzles[currentPuzzle].fen);
+      setPuzzleStatus('solving');
+      setPuzzleAttempts(0);
+    } else {
+      chess.reset();
+      setCapturedPieces({ white: [], black: [] });
+      setScore({ white: 0, black: 0 });
+    }
+    
+    setSelectedSquare(null);
+    setPossibleMoves([]);
+    setMoveHistory([]);
+    setGameOver(null);
+    
+    // Update game state
+    updateGameState();
   };
 
   // Navigate puzzles
   const nextPuzzle = () => {
     const nextIndex = (currentPuzzle + 1) % chessPuzzles.length;
     setCurrentPuzzle(nextIndex);
-    setBoard(chessPuzzles[nextIndex].fen);
-    setCurrentTurn('w');
+    chess.load(chessPuzzles[nextIndex].fen);
     setPuzzleStatus('solving');
     setPuzzleAttempts(0);
     setSelectedSquare(null);
     setPossibleMoves([]);
+    updateGameState();
   };
   
   const previousPuzzle = () => {
     const prevIndex = currentPuzzle === 0 ? chessPuzzles.length - 1 : currentPuzzle - 1;
     setCurrentPuzzle(prevIndex);
-    setBoard(chessPuzzles[prevIndex].fen);
-    setCurrentTurn('w');
+    chess.load(chessPuzzles[prevIndex].fen);
     setPuzzleStatus('solving');
     setPuzzleAttempts(0);
     setSelectedSquare(null);
     setPossibleMoves([]);
+    updateGameState();
   };
 
-  // AI move
-  useEffect(() => {
-    if (gameMode === 'ai' && currentTurn === 'b' && !gameOver) {
-      const timer = setTimeout(() => {
-        const bestMove = getBestMove(board);
-        if (bestMove) {
-          makeMove(bestMove.from, bestMove.to);
-        }
-      }, 500);
-      
-      return () => clearTimeout(timer);
-    }
-  }, [currentTurn, gameMode, board, gameOver]);
-
-  // Reset game
-  const resetGame = () => {
-    if (gameMode === 'puzzle') {
-      // Reset current puzzle
-      setBoard(chessPuzzles[currentPuzzle].fen);
-      setPuzzleStatus('solving');
-      setPuzzleAttempts(0);
-    } else {
-      // Reset regular game
-      setBoard(createInitialBoard());
-      setCapturedPieces({ white: [], black: [] });
-      setScore({ white: 0, black: 0 });
-    }
-    setCurrentTurn('w');
-    setSelectedSquare(null);
-    setPossibleMoves([]);
-    setMoveHistory([]);
-    setIsInCheck(false);
-    setGameOver(null);
-  };
-
-  // Start new game
-  const startGame = (mode: 'ai' | 'friend' | 'puzzle') => {
-    setGameMode(mode);
-    if (mode === 'puzzle') {
-      // Load first puzzle
-      setBoard(chessPuzzles[currentPuzzle].fen);
-      setCurrentTurn('w');
-      setPuzzleStatus('solving');
-      setPuzzleAttempts(0);
-    } else {
-      resetGame();
-    }
-  };
+  // Initialize chess on first render if not already done
+  if (!chess) {
+    return null; // Brief moment while initializing
+  }
 
   // Menu screen
   if (gameMode === 'menu') {
@@ -772,6 +569,12 @@ const ChessGame: React.FC = () => {
       }}>
         <div style={{ textAlign: 'center', color: 'white', width: '100%', maxWidth: '400px' }}>
           <h1 style={{ fontSize: '36px', marginBottom: '30px' }}>♟️ Quick Chess</h1>
+          <div style={{ marginBottom: '20px', fontSize: '14px', color: '#BDC3C7' }}>
+            <p>Powered by chess.js library</p>
+            <p>Full FIDE chess rules including:</p>
+            <p>Castling • En Passant • Pawn Promotion</p>
+            <p>50-Move Rule • Threefold Repetition</p>
+          </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '15px', alignItems: 'center' }}>
             <button
               onClick={() => startGame('ai')}
@@ -916,7 +719,7 @@ const ChessGame: React.FC = () => {
             </div>
           )}
           
-          {/* Chess board using ChessBoard component */}
+          {/* Chess board */}
           <ChessBoard
             board={board}
             selectedSquare={selectedSquare}
@@ -979,7 +782,10 @@ const ChessGame: React.FC = () => {
               </button>
             )}
             <button
-              onClick={() => setGameMode('menu')}
+              onClick={() => {
+                setGameMode('menu');
+                setIsAIThinking(false);
+              }}
               style={{
                 padding: '10px 15px',
                 fontSize: '14px',
@@ -1014,7 +820,7 @@ const ChessGame: React.FC = () => {
     );
   }
 
-  // Game screen - using ChessBoard component
+  // Game screen
   return (
     <div style={{ 
       minHeight: '100vh', 
@@ -1024,6 +830,14 @@ const ChessGame: React.FC = () => {
       flexDirection: 'column',
       alignItems: 'center'
     }}>
+      {/* Promotion Modal */}
+      {promotionModal && (
+        <PromotionModal
+          color={promotionModal.color}
+          onSelect={handlePromotion}
+        />
+      )}
+      
       <div style={{ 
         backgroundColor: '#2C3E50', 
         padding: '20px', 
@@ -1085,6 +899,10 @@ const ChessGame: React.FC = () => {
             <div style={{ fontSize: '18px' }}>
               {currentTurn === 'w' ? '⚪ White' : '⚫ Black'} to move
               {isInCheck && <span style={{ color: '#FF6B6B', marginLeft: '10px' }}>CHECK!</span>}
+              {isAIThinking && <span style={{ color: '#3498DB', marginLeft: '10px' }}>AI thinking...</span>}
+            </div>
+            <div style={{ fontSize: '12px', color: '#BDC3C7', marginTop: '5px' }}>
+              Move {Math.floor(moveHistory.length / 2) + 1}
             </div>
           </div>
           
@@ -1105,7 +923,7 @@ const ChessGame: React.FC = () => {
             </div>
           )}
           
-          {/* Chess board using ChessBoard component */}
+          {/* Chess board */}
           <ChessBoard
             board={board}
             selectedSquare={selectedSquare}
@@ -1114,6 +932,22 @@ const ChessGame: React.FC = () => {
             currentTurn={currentTurn}
             onSquareClick={handleSquareClick}
           />
+          
+          {/* Move History */}
+          {moveHistory.length > 0 && (
+            <div style={{
+              marginTop: '15px',
+              padding: '10px',
+              backgroundColor: 'rgba(255, 255, 255, 0.1)',
+              borderRadius: '5px',
+              color: 'white',
+              fontSize: '12px',
+              maxHeight: '50px',
+              overflowY: 'auto'
+            }}>
+              <strong>Moves:</strong> {moveHistory.join(', ')}
+            </div>
+          )}
           
           {/* Controls */}
           <div style={{ marginTop: '20px', textAlign: 'center' }}>
