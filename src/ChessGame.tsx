@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import ChessBoard from './ChessBoard';
 
 // TypeScript declaration for chess.js global
@@ -20,7 +20,7 @@ const pieceSymbols: Record<string, string> = {
   'bp': '♟', 'bn': '♞', 'bb': '♝', 'br': '♜', 'bq': '♛', 'bk': '♚'
 };
 
-// Piece values for AI
+// Piece values for AI and scoring
 const pieceValues: Record<PieceType, number> = {
   'p': 1, 'n': 3, 'b': 3, 'r': 5, 'q': 9, 'k': 100
 };
@@ -57,79 +57,92 @@ const convertChessJSBoard = (chess: any): Piece[][] => {
   return board;
 };
 
-// Chess puzzles
-const chessPuzzles = [
+// Chess preset positions for two-player puzzle mode
+const chessPresets = [
   {
     id: 1,
-    name: "Back Rank Mate",
-    category: 'checkmate',
+    name: "Rook Endgame",
+    category: 'endgame',
     difficulty: 'beginner',
-    fen: "3r1k1/5ppp/8/8/3Q4/8/5PPP/6K1 w - - 0 1",
-    solution: { from: "d4", to: "d8" },
-    hint: "Look for a back rank checkmate!",
-    description: "White to move - Mate in 1"
+    fen: "3k4/8/3K4/8/8/8/3R4/8 w - - 0 1",
+    description: "White has a rook advantage. Can you win?"
   },
   {
     id: 2,
-    name: "Queen and King Mate",
-    category: 'checkmate',
-    difficulty: 'beginner',
-    fen: "7k/8/5K2/8/8/1Q6/8/8 w - - 0 1",
-    solution: { from: "b3", to: "g8" },
-    hint: "Drive the king to the edge and deliver mate!",
-    description: "White to move - Mate in 1"
+    name: "Queen vs Pawns",
+    category: 'endgame',
+    difficulty: 'intermediate',
+    fen: "8/1pp5/8/8/8/8/8/3QK3 w - - 0 1",
+    description: "Queen vs multiple pawns. Strategy required!"
   },
   {
     id: 3,
-    name: "Smothered Mate",
-    category: 'checkmate',
-    difficulty: 'intermediate',
-    fen: "5rk1/5ppp/6N1/8/8/8/8/6K1 w - - 0 1",
-    solution: { from: "g6", to: "e7" },
-    hint: "The knight can deliver a special mate when the king is trapped by its own pieces!",
-    description: "White to move - Mate in 1"
+    name: "Knight Fork Setup",
+    category: 'tactics',
+    difficulty: 'beginner',
+    fen: "r2qkb1r/ppp2ppp/2n5/3pp3/2PP4/5N2/PP2PPPP/RNBQKB1R w KQkq - 0 1",
+    description: "Look for tactical opportunities"
   },
   {
     id: 4,
-    name: "Fork Attack",
-    category: 'tactics',
-    difficulty: 'beginner',
-    fen: "r2r2k1/ppp2ppp/8/4p3/4P3/2N5/PPP2PPP/R4RK1 w - - 0 1",
-    solution: { from: "c3", to: "d5" },
-    hint: "Knights are great at attacking two pieces at once!",
-    description: "White to move - Win material"
+    name: "Pawn Promotion Race",
+    category: 'endgame',
+    difficulty: 'intermediate',
+    fen: "8/1P1k4/8/8/8/8/1p1K4/8 w - - 0 1",
+    description: "Race to promote your pawn first!"
   },
   {
     id: 5,
-    name: "Castling Defense",
-    category: 'tactics',
-    difficulty: 'beginner',
-    fen: "r3k2r/ppp2ppp/8/3pp3/3PP3/8/PPP2PPP/R3K2R w KQkq - 0 1",
-    solution: { from: "e1", to: "g1" },
-    hint: "Castle to safety!",
-    description: "White to move - Castle kingside"
+    name: "Bishop Pair",
+    category: 'middlegame',
+    difficulty: 'advanced',
+    fen: "r1bqk2r/pppp1ppp/2n2n2/2b1p3/2B1P3/3P1N2/PPP2PPP/RNBQK2R w KQkq - 0 1",
+    description: "White has the bishop pair advantage"
   },
   {
     id: 6,
-    name: "En Passant Capture",
-    category: 'tactics',
-    difficulty: 'intermediate',
-    fen: "rnbqkbnr/ppp2ppp/8/3pP3/8/8/PPPP1PPP/RNBQKBNR w KQkq d6 0 3",
-    solution: { from: "e5", to: "d6" },
-    hint: "Capture the pawn that just moved two squares!",
-    description: "White to move - En passant"
-  },
-  {
-    id: 7,
-    name: "Pawn Promotion",
+    name: "King and Pawn vs King",
     category: 'endgame',
     difficulty: 'beginner',
-    fen: "8/1P4k1/8/8/8/5K2/8/8 w - - 0 1",
-    solution: { from: "b7", to: "b8" },
-    hint: "Push the pawn to promote!",
-    description: "White to move - Promote and win"
+    fen: "8/8/8/4k3/4P3/4K3/8/8 w - - 0 1",
+    description: "Basic pawn endgame - can you win?"
   }
 ];
+
+// Timer Component
+interface TimerProps {
+  timeLeft: number;
+  isActive: boolean;
+  player: 'white' | 'black';
+}
+
+const Timer: React.FC<TimerProps> = ({ timeLeft, isActive, player }) => {
+  const minutes = Math.floor(timeLeft / 60);
+  const seconds = timeLeft % 60;
+  
+  return (
+    <div style={{
+      padding: '10px 15px',
+      backgroundColor: isActive ? '#3498DB' : '#7F8C8D',
+      color: 'white',
+      borderRadius: '8px',
+      textAlign: 'center',
+      minWidth: '100px',
+      border: isActive ? '2px solid #2980B9' : 'none'
+    }}>
+      <div style={{ fontSize: '12px', marginBottom: '2px' }}>
+        {player.charAt(0).toUpperCase() + player.slice(1)}
+      </div>
+      <div style={{ 
+        fontSize: '18px', 
+        fontWeight: 'bold',
+        color: timeLeft < 60 ? '#E74C3C' : 'white'
+      }}>
+        {minutes}:{seconds.toString().padStart(2, '0')}
+      </div>
+    </div>
+  );
+};
 
 // Promotion Modal Component
 interface PromotionModalProps {
@@ -200,7 +213,7 @@ const ChessGame: React.FC = () => {
   const [selectedSquare, setSelectedSquare] = useState<Square | null>(null);
   const [possibleMoves, setPossibleMoves] = useState<Square[]>([]);
   const [currentTurn, setCurrentTurn] = useState<PieceColor>('w');
-  const [gameMode, setGameMode] = useState<'menu' | 'ai' | 'friend' | 'puzzle'>('menu');
+  const [gameMode, setGameMode] = useState<'menu' | 'ai' | 'friend' | 'timer' | 'preset'>('menu');
   const [moveHistory, setMoveHistory] = useState<string[]>([]);
   const [isInCheck, setIsInCheck] = useState(false);
   const [gameOver, setGameOver] = useState<{ winner: PieceColor | 'draw'; reason: string } | null>(null);
@@ -209,11 +222,94 @@ const ChessGame: React.FC = () => {
     black: [] 
   });
   const [score, setScore] = useState<{ white: number, black: number }>({ white: 0, black: 0 });
-  const [currentPuzzle, setCurrentPuzzle] = useState(0);
-  const [puzzleStatus, setPuzzleStatus] = useState<'solving' | 'correct' | 'incorrect'>('solving');
-  const [puzzleAttempts, setPuzzleAttempts] = useState(0);
+  const [currentPreset, setCurrentPreset] = useState(0);
   const [promotionModal, setPromotionModal] = useState<{ from: string; to: string; color: PieceColor } | null>(null);
   const [isAIThinking, setIsAIThinking] = useState(false);
+  
+  // Timer states
+  const [timerWhite, setTimerWhite] = useState(600); // 10 minutes in seconds
+  const [timerBlack, setTimerBlack] = useState(600);
+  const [isTimerActive, setIsTimerActive] = useState(false);
+  const timerRef = useRef<number | null>(null);
+
+  // Timer effect
+  useEffect(() => {
+    if (isTimerActive && (gameMode === 'timer' || gameMode === 'preset')) {
+      timerRef.current = setInterval(() => {
+        if (currentTurn === 'w') {
+          setTimerWhite(prev => {
+            if (prev <= 1) {
+              // Time's up for white
+              setIsTimerActive(false);
+              determineWinnerByPoints('b', 'White ran out of time!');
+              return 0;
+            }
+            return prev - 1;
+          });
+        } else {
+          setTimerBlack(prev => {
+            if (prev <= 1) {
+              // Time's up for black
+              setIsTimerActive(false);
+              determineWinnerByPoints('w', 'Black ran out of time!');
+              return 0;
+            }
+            return prev - 1;
+          });
+        }
+      }, 1000);
+
+      return () => {
+        if (timerRef.current) {
+          clearInterval(timerRef.current);
+        }
+      };
+    }
+  }, [isTimerActive, currentTurn, gameMode]);
+
+  // Determine winner by points when timer runs out
+  const determineWinnerByPoints = (timeWinner: PieceColor | null, reason: string) => {
+    let winner: PieceColor | 'draw';
+    let finalReason = reason;
+
+    if (timeWinner) {
+      winner = timeWinner;
+    } else if (score.white > score.black) {
+      winner = 'w';
+      finalReason = `White wins by points! (${score.white} - ${score.black})`;
+    } else if (score.black > score.white) {
+      winner = 'b';
+      finalReason = `Black wins by points! (${score.black} - ${score.white})`;
+    } else {
+      winner = 'draw';
+      finalReason = `Draw by equal points! (${score.white} - ${score.black})`;
+    }
+
+    setGameOver({ winner, reason: finalReason });
+    setIsTimerActive(false);
+  };
+
+  // Calculate material score from current board
+  const calculateMaterialScore = () => {
+    let whiteScore = 0;
+    let blackScore = 0;
+
+    for (let row = 0; row < 8; row++) {
+      for (let col = 0; col < 8; col++) {
+        const piece = board[row][col];
+        if (piece && piece.type !== 'k') { // Don't count kings
+          const value = pieceValues[piece.type];
+          if (piece.color === 'w') {
+            whiteScore += value;
+          } else {
+            blackScore += value;
+          }
+        }
+      }
+    }
+
+    return { white: whiteScore, black: blackScore };
+  };
 
   // Update board and game state after moves
   const updateGameState = () => {
@@ -221,8 +317,15 @@ const ChessGame: React.FC = () => {
     setCurrentTurn(chess.turn());
     setIsInCheck(chess.in_check());
     
+    // Update material score for timer mode
+    if (gameMode === 'timer' || gameMode === 'preset') {
+      const materialScore = calculateMaterialScore();
+      setScore(materialScore);
+    }
+    
     // Check game over conditions
     if (chess.game_over()) {
+      setIsTimerActive(false);
       if (chess.in_checkmate()) {
         setGameOver({
           winner: chess.turn() === 'w' ? 'b' : 'w',
@@ -272,8 +375,8 @@ const ChessGame: React.FC = () => {
       const move = chess.move({ from, to, promotion });
       if (!move) return false;
       
-      // Track captured piece
-      if (move.captured) {
+      // Track captured piece for non-timer modes
+      if (move.captured && gameMode !== 'timer' && gameMode !== 'preset') {
         const capturedPiece: Piece = {
           type: move.captured as PieceType,
           color: move.color === 'w' ? 'b' : 'w'
@@ -285,7 +388,7 @@ const ChessGame: React.FC = () => {
           [capturedBy]: [...prev[capturedBy], capturedPiece]
         }));
         
-        // Update score
+        // Update score for non-timer modes
         const points = pieceValues[capturedPiece.type];
         setScore(prev => ({
           ...prev,
@@ -315,55 +418,7 @@ const ChessGame: React.FC = () => {
     
     const clickedSquare = indicesToSquare(row, col);
     
-    // Puzzle mode
-    if (gameMode === 'puzzle') {
-      if (puzzleStatus !== 'solving') return;
-      
-      const puzzle = chessPuzzles[currentPuzzle];
-      
-      if (selectedSquare) {
-        const fromSquare = indicesToSquare(selectedSquare.row, selectedSquare.col);
-        const isValidMove = possibleMoves.some(move => move.row === row && move.col === col);
-        
-        if (isValidMove) {
-          // Check if this is the correct solution
-          const isCorrect = fromSquare === puzzle.solution.from && clickedSquare === puzzle.solution.to;
-          
-          if (isCorrect) {
-            makeMove(fromSquare, clickedSquare);
-            setPuzzleStatus('correct');
-          } else {
-            setPuzzleStatus('incorrect');
-            setPuzzleAttempts(prev => prev + 1);
-            setTimeout(() => {
-              setPuzzleStatus('solving');
-              setSelectedSquare(null);
-              setPossibleMoves([]);
-            }, 1500);
-          }
-        } else {
-          // Select new piece
-          const piece = chess.get(clickedSquare);
-          if (piece && piece.color === 'w') {
-            setSelectedSquare({ row, col });
-            setPossibleMoves(getPossibleMovesForSquare(row, col));
-          } else {
-            setSelectedSquare(null);
-            setPossibleMoves([]);
-          }
-        }
-      } else {
-        // Select a piece
-        const piece = chess.get(clickedSquare);
-        if (piece && piece.color === 'w') {
-          setSelectedSquare({ row, col });
-          setPossibleMoves(getPossibleMovesForSquare(row, col));
-        }
-      }
-      return;
-    }
-    
-    // Regular game modes
+    // Regular game modes (including timer and preset)
     if (selectedSquare) {
       const fromSquare = indicesToSquare(selectedSquare.row, selectedSquare.col);
       const isValidMove = possibleMoves.some(move => move.row === row && move.col === col);
@@ -381,7 +436,7 @@ const ChessGame: React.FC = () => {
         // Select new piece
         const piece = chess.get(clickedSquare);
         if (piece && piece.color === chess.turn() && 
-            (gameMode === 'friend' || (gameMode === 'ai' && chess.turn() === 'w'))) {
+            (gameMode === 'friend' || gameMode === 'timer' || gameMode === 'preset' || (gameMode === 'ai' && chess.turn() === 'w'))) {
           setSelectedSquare({ row, col });
           setPossibleMoves(getPossibleMovesForSquare(row, col));
         } else {
@@ -393,7 +448,7 @@ const ChessGame: React.FC = () => {
       // Select a piece
       const piece = chess.get(clickedSquare);
       if (piece && piece.color === chess.turn() && 
-          (gameMode === 'friend' || (gameMode === 'ai' && chess.turn() === 'w'))) {
+          (gameMode === 'friend' || gameMode === 'timer' || gameMode === 'preset' || (gameMode === 'ai' && chess.turn() === 'w'))) {
         setSelectedSquare({ row, col });
         setPossibleMoves(getPossibleMovesForSquare(row, col));
       }
@@ -481,17 +536,23 @@ const ChessGame: React.FC = () => {
   // Reset game
   const resetGame = () => {
     setIsAIThinking(false);
+    setIsTimerActive(false);
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+    }
     
-    if (gameMode === 'puzzle') {
-      // Reset current puzzle
-      chess.load(chessPuzzles[currentPuzzle].fen);
-      setPuzzleStatus('solving');
-      setPuzzleAttempts(0);
+    if (gameMode === 'preset') {
+      // Reset current preset
+      chess.load(chessPresets[currentPreset].fen);
+    } else if (gameMode === 'timer') {
+      // Reset timer game
+      chess.reset();
+      setTimerWhite(600);
+      setTimerBlack(600);
     } else {
       // Reset regular game
       chess.reset();
       setCapturedPieces({ white: [], black: [] });
-      setScore({ white: 0, black: 0 });
     }
     
     setSelectedSquare(null);
@@ -505,18 +566,24 @@ const ChessGame: React.FC = () => {
   };
 
   // Start new game
-  const startGame = (mode: 'ai' | 'friend' | 'puzzle') => {
+  const startGame = (mode: 'ai' | 'friend' | 'timer' | 'preset') => {
     setGameMode(mode);
     setIsAIThinking(false);
+    setIsTimerActive(false);
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+    }
     
-    if (mode === 'puzzle') {
-      chess.load(chessPuzzles[currentPuzzle].fen);
-      setPuzzleStatus('solving');
-      setPuzzleAttempts(0);
+    if (mode === 'preset') {
+      chess.load(chessPresets[currentPreset].fen);
+    } else if (mode === 'timer') {
+      chess.reset();
+      setTimerWhite(600);
+      setTimerBlack(600);
+      setIsTimerActive(true);
     } else {
       chess.reset();
       setCapturedPieces({ white: [], black: [] });
-      setScore({ white: 0, black: 0 });
     }
     
     setSelectedSquare(null);
@@ -528,26 +595,32 @@ const ChessGame: React.FC = () => {
     updateGameState();
   };
 
-  // Navigate puzzles
-  const nextPuzzle = () => {
-    const nextIndex = (currentPuzzle + 1) % chessPuzzles.length;
-    setCurrentPuzzle(nextIndex);
-    chess.load(chessPuzzles[nextIndex].fen);
-    setPuzzleStatus('solving');
-    setPuzzleAttempts(0);
+  // Navigate presets
+  const nextPreset = () => {
+    const nextIndex = (currentPreset + 1) % chessPresets.length;
+    setCurrentPreset(nextIndex);
+    chess.load(chessPresets[nextIndex].fen);
     setSelectedSquare(null);
     setPossibleMoves([]);
+    setMoveHistory([]);
+    setGameOver(null);
+    setTimerWhite(600);
+    setTimerBlack(600);
+    setIsTimerActive(true);
     updateGameState();
   };
   
-  const previousPuzzle = () => {
-    const prevIndex = currentPuzzle === 0 ? chessPuzzles.length - 1 : currentPuzzle - 1;
-    setCurrentPuzzle(prevIndex);
-    chess.load(chessPuzzles[prevIndex].fen);
-    setPuzzleStatus('solving');
-    setPuzzleAttempts(0);
+  const previousPreset = () => {
+    const prevIndex = currentPreset === 0 ? chessPresets.length - 1 : currentPreset - 1;
+    setCurrentPreset(prevIndex);
+    chess.load(chessPresets[prevIndex].fen);
     setSelectedSquare(null);
     setPossibleMoves([]);
+    setMoveHistory([]);
+    setGameOver(null);
+    setTimerWhite(600);
+    setTimerBlack(600);
+    setIsTimerActive(true);
     updateGameState();
   };
 
@@ -609,7 +682,23 @@ const ChessGame: React.FC = () => {
               👥 Pass & Play
             </button>
             <button
-              onClick={() => startGame('puzzle')}
+              onClick={() => startGame('timer')}
+              style={{
+                padding: '15px 30px',
+                fontSize: '18px',
+                backgroundColor: '#E67E22',
+                color: 'white',
+                border: 'none',
+                borderRadius: '10px',
+                cursor: 'pointer',
+                width: '100%',
+                maxWidth: '250px'
+              }}
+            >
+              ⏱️ 10-Min Timer
+            </button>
+            <button
+              onClick={() => startGame('preset')}
               style={{
                 padding: '15px 30px',
                 fontSize: '18px',
@@ -622,7 +711,7 @@ const ChessGame: React.FC = () => {
                 maxWidth: '250px'
               }}
             >
-              🧩 Puzzles
+              🎯 Preset Battles
             </button>
           </div>
         </div>
@@ -630,9 +719,9 @@ const ChessGame: React.FC = () => {
     );
   }
 
-  // Puzzle screen
-  if (gameMode === 'puzzle') {
-    const puzzle = chessPuzzles[currentPuzzle];
+  // Preset battle screen
+  if (gameMode === 'preset') {
+    const preset = chessPresets[currentPreset];
     
     return (
       <div style={{ 
@@ -659,21 +748,21 @@ const ChessGame: React.FC = () => {
             textAlign: 'center' 
           }}>
             <h2 style={{ margin: '0 0 10px 0', fontSize: '24px' }}>
-              🧩 Puzzle {currentPuzzle + 1} of {chessPuzzles.length}
+              🎯 Preset Battle {currentPreset + 1} of {chessPresets.length}
             </h2>
             <h3 style={{ margin: '0 0 10px 0', color: '#9B59B6', fontSize: '20px' }}>
-              {puzzle.name}
+              {preset.name}
             </h3>
             <div style={{ fontSize: '14px', marginBottom: '5px' }}>
               <span style={{ 
                 padding: '4px 8px', 
                 borderRadius: '4px', 
-                backgroundColor: puzzle.difficulty === 'beginner' ? '#27AE60' : 
-                               puzzle.difficulty === 'intermediate' ? '#F39C12' : '#E74C3C',
+                backgroundColor: preset.difficulty === 'beginner' ? '#27AE60' : 
+                               preset.difficulty === 'intermediate' ? '#F39C12' : '#E74C3C',
                 fontSize: '12px',
                 marginRight: '10px'
               }}>
-                {puzzle.difficulty.charAt(0).toUpperCase() + puzzle.difficulty.slice(1)}
+                {preset.difficulty.charAt(0).toUpperCase() + preset.difficulty.slice(1)}
               </span>
               <span style={{ 
                 padding: '4px 8px', 
@@ -681,41 +770,43 @@ const ChessGame: React.FC = () => {
                 backgroundColor: '#34495E',
                 fontSize: '12px'
               }}>
-                {puzzle.category.charAt(0).toUpperCase() + puzzle.category.slice(1)}
+                {preset.category.charAt(0).toUpperCase() + preset.category.slice(1)}
               </span>
             </div>
-            <div style={{ fontSize: '16px', marginTop: '10px' }}>
-              {puzzle.description}
+            <div style={{ fontSize: '16px', marginTop: '10px', marginBottom: '15px' }}>
+              {preset.description}
+            </div>
+            
+            {/* Timers */}
+            <div style={{ display: 'flex', justifyContent: 'space-around', alignItems: 'center', marginBottom: '15px' }}>
+              <Timer timeLeft={timerWhite} isActive={isTimerActive && currentTurn === 'w'} player="white" />
+              <div style={{ color: '#BDC3C7', fontSize: '14px' }}>
+                Material: W {score.white} - B {score.black}
+              </div>
+              <Timer timeLeft={timerBlack} isActive={isTimerActive && currentTurn === 'b'} player="black" />
+            </div>
+            
+            {/* Turn indicator */}
+            <div style={{ fontSize: '18px', marginBottom: '10px' }}>
+              {currentTurn === 'w' ? '⚪ White' : '⚫ Black'} to move
+              {isInCheck && <span style={{ color: '#FF6B6B', marginLeft: '10px' }}>CHECK!</span>}
             </div>
           </div>
           
-          {/* Puzzle Status */}
-          {puzzleStatus === 'correct' && (
+          {/* Game Over Message */}
+          {gameOver && (
             <div style={{
-              backgroundColor: '#27AE60',
+              backgroundColor: gameOver.winner === 'draw' ? '#F39C12' : '#27AE60',
               color: 'white',
-              padding: '10px',
+              padding: '15px',
               borderRadius: '5px',
-              marginBottom: '15px',
+              marginBottom: '20px',
               textAlign: 'center',
-              fontSize: '18px',
+              fontSize: '20px',
               fontWeight: 'bold'
             }}>
-              ✅ Correct! Well done!
-            </div>
-          )}
-          
-          {puzzleStatus === 'incorrect' && (
-            <div style={{
-              backgroundColor: '#E74C3C',
-              color: 'white',
-              padding: '10px',
-              borderRadius: '5px',
-              marginBottom: '15px',
-              textAlign: 'center',
-              fontSize: '16px'
-            }}>
-              ❌ Not quite. Try again!
+              {gameOver.reason}
+              {gameOver.winner !== 'draw' && ` ${gameOver.winner === 'w' ? 'White' : 'Black'} wins!`}
             </div>
           )}
           
@@ -729,18 +820,19 @@ const ChessGame: React.FC = () => {
             onSquareClick={handleSquareClick}
           />
           
-          {/* Hint */}
-          {puzzleAttempts > 1 && puzzleStatus === 'solving' && (
+          {/* Move History */}
+          {moveHistory.length > 0 && (
             <div style={{
-              marginBottom: '15px',
+              marginTop: '15px',
               padding: '10px',
-              backgroundColor: '#F39C12',
-              color: 'white',
+              backgroundColor: 'rgba(255, 255, 255, 0.1)',
               borderRadius: '5px',
-              textAlign: 'center',
-              fontSize: '14px'
+              color: 'white',
+              fontSize: '12px',
+              maxHeight: '50px',
+              overflowY: 'auto'
             }}>
-              💡 Hint: {puzzle.hint}
+              <strong>Moves:</strong> {moveHistory.join(', ')}
             </div>
           )}
           
@@ -749,10 +841,11 @@ const ChessGame: React.FC = () => {
             display: 'flex', 
             gap: '10px', 
             justifyContent: 'center', 
-            flexWrap: 'wrap' 
+            flexWrap: 'wrap',
+            marginTop: '15px'
           }}>
             <button
-              onClick={previousPuzzle}
+              onClick={previousPreset}
               style={{
                 padding: '10px 15px',
                 fontSize: '14px',
@@ -765,26 +858,28 @@ const ChessGame: React.FC = () => {
             >
               ← Previous
             </button>
-            {puzzleStatus !== 'correct' && (
-              <button
-                onClick={resetGame}
-                style={{
-                  padding: '10px 15px',
-                  fontSize: '14px',
-                  backgroundColor: '#3498DB',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '5px',
-                  cursor: 'pointer'
-                }}
-              >
-                Reset Puzzle
-              </button>
-            )}
+            <button
+              onClick={resetGame}
+              style={{
+                padding: '10px 15px',
+                fontSize: '14px',
+                backgroundColor: '#3498DB',
+                color: 'white',
+                border: 'none',
+                borderRadius: '5px',
+                cursor: 'pointer'
+              }}
+            >
+              Reset Battle
+            </button>
             <button
               onClick={() => {
                 setGameMode('menu');
                 setIsAIThinking(false);
+                setIsTimerActive(false);
+                if (timerRef.current) {
+                  clearInterval(timerRef.current);
+                }
               }}
               style={{
                 padding: '10px 15px',
@@ -798,29 +893,27 @@ const ChessGame: React.FC = () => {
             >
               Back to Menu
             </button>
-            {puzzleStatus === 'correct' && (
-              <button
-                onClick={nextPuzzle}
-                style={{
-                  padding: '10px 15px',
-                  fontSize: '14px',
-                  backgroundColor: '#27AE60',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '5px',
-                  cursor: 'pointer'
-                }}
-              >
-                Next →
-              </button>
-            )}
+            <button
+              onClick={nextPreset}
+              style={{
+                padding: '10px 15px',
+                fontSize: '14px',
+                backgroundColor: '#27AE60',
+                color: 'white',
+                border: 'none',
+                borderRadius: '5px',
+                cursor: 'pointer'
+              }}
+            >
+              Next →
+            </button>
           </div>
         </div>
       </div>
     );
   }
 
-  // Game screen
+  // Game screen (AI, Friend, Timer modes)
   return (
     <div style={{ 
       minHeight: '100vh', 
@@ -848,7 +941,7 @@ const ChessGame: React.FC = () => {
         flexWrap: 'wrap',
         justifyContent: 'center'
       }}>
-        {/* Left side - Captured by Black */}
+        {/* Left side - Captured by Black or Timer for White */}
         <div style={{ 
           minWidth: '150px',
           color: 'white',
@@ -856,33 +949,39 @@ const ChessGame: React.FC = () => {
           flexDirection: 'column',
           gap: '10px'
         }}>
-          <div style={{ 
-            fontSize: '18px', 
-            fontWeight: 'bold',
-            marginBottom: '10px',
-            textAlign: 'center'
-          }}>
-            Black: {score.black}
-          </div>
-          <div style={{ 
-            display: 'flex', 
-            flexWrap: 'wrap',
-            gap: '2px',
-            minHeight: '60px',
-            padding: '10px',
-            backgroundColor: 'rgba(255, 255, 255, 0.1)',
-            borderRadius: '5px'
-          }}>
-            {capturedPieces.black.map((piece, index) => (
-              <span key={index} style={{ 
-                fontSize: '30px',
-                color: '#FFFFFF',
-                textShadow: '0 0 3px #000'
+          {gameMode === 'timer' ? (
+            <Timer timeLeft={timerWhite} isActive={isTimerActive && currentTurn === 'w'} player="white" />
+          ) : (
+            <>
+              <div style={{ 
+                fontSize: '18px', 
+                fontWeight: 'bold',
+                marginBottom: '10px',
+                textAlign: 'center'
               }}>
-                {getPieceSymbol(piece)}
-              </span>
-            ))}
-          </div>
+                Black: {score.black}
+              </div>
+              <div style={{ 
+                display: 'flex', 
+                flexWrap: 'wrap',
+                gap: '2px',
+                minHeight: '60px',
+                padding: '10px',
+                backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                borderRadius: '5px'
+              }}>
+                {capturedPieces.black.map((piece, index) => (
+                  <span key={index} style={{ 
+                    fontSize: '30px',
+                    color: '#FFFFFF',
+                    textShadow: '0 0 3px #000'
+                  }}>
+                    {getPieceSymbol(piece)}
+                  </span>
+                ))}
+              </div>
+            </>
+          )}
         </div>
 
         {/* Center - Board and controls */}
@@ -894,7 +993,8 @@ const ChessGame: React.FC = () => {
             textAlign: 'center' 
           }}>
             <h2 style={{ margin: '0 0 10px 0' }}>
-              {gameMode === 'ai' ? '🤖 Playing vs AI' : '👥 Pass & Play'}
+              {gameMode === 'ai' ? '🤖 Playing vs AI' : 
+               gameMode === 'timer' ? '⏱️ 10-Minute Timer' : '👥 Pass & Play'}
             </h2>
             <div style={{ fontSize: '18px' }}>
               {currentTurn === 'w' ? '⚪ White' : '⚫ Black'} to move
@@ -903,6 +1003,11 @@ const ChessGame: React.FC = () => {
             </div>
             <div style={{ fontSize: '12px', color: '#BDC3C7', marginTop: '5px' }}>
               Move {Math.floor(moveHistory.length / 2) + 1}
+              {gameMode === 'timer' && (
+                <span style={{ marginLeft: '10px' }}>
+                  Material: W {score.white} - B {score.black}
+                </span>
+              )}
             </div>
           </div>
           
@@ -952,7 +1057,14 @@ const ChessGame: React.FC = () => {
           {/* Controls */}
           <div style={{ marginTop: '20px', textAlign: 'center' }}>
             <button
-              onClick={() => setGameMode('menu')}
+              onClick={() => {
+                setGameMode('menu');
+                setIsAIThinking(false);
+                setIsTimerActive(false);
+                if (timerRef.current) {
+                  clearInterval(timerRef.current);
+                }
+              }}
               style={{
                 padding: '10px 20px',
                 fontSize: '16px',
@@ -983,7 +1095,7 @@ const ChessGame: React.FC = () => {
           </div>
         </div>
 
-        {/* Right side - Captured by White */}
+        {/* Right side - Captured by White or Timer for Black */}
         <div style={{ 
           minWidth: '150px',
           color: 'white',
@@ -991,33 +1103,39 @@ const ChessGame: React.FC = () => {
           flexDirection: 'column',
           gap: '10px'
         }}>
-          <div style={{ 
-            fontSize: '18px', 
-            fontWeight: 'bold',
-            marginBottom: '10px',
-            textAlign: 'center'
-          }}>
-            White: {score.white}
-          </div>
-          <div style={{ 
-            display: 'flex', 
-            flexWrap: 'wrap',
-            gap: '2px',
-            minHeight: '60px',
-            padding: '10px',
-            backgroundColor: 'rgba(255, 255, 255, 0.1)',
-            borderRadius: '5px'
-          }}>
-            {capturedPieces.white.map((piece, index) => (
-              <span key={index} style={{ 
-                fontSize: '30px',
-                color: '#000000',
-                textShadow: '0 0 3px #FFF'
+          {gameMode === 'timer' ? (
+            <Timer timeLeft={timerBlack} isActive={isTimerActive && currentTurn === 'b'} player="black" />
+          ) : (
+            <>
+              <div style={{ 
+                fontSize: '18px', 
+                fontWeight: 'bold',
+                marginBottom: '10px',
+                textAlign: 'center'
               }}>
-                {getPieceSymbol(piece)}
-              </span>
-            ))}
-          </div>
+                White: {score.white}
+              </div>
+              <div style={{ 
+                display: 'flex', 
+                flexWrap: 'wrap',
+                gap: '2px',
+                minHeight: '60px',
+                padding: '10px',
+                backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                borderRadius: '5px'
+              }}>
+                {capturedPieces.white.map((piece, index) => (
+                  <span key={index} style={{ 
+                    fontSize: '30px',
+                    color: '#000000',
+                    textShadow: '0 0 3px #FFF'
+                  }}>
+                    {getPieceSymbol(piece)}
+                  </span>
+                ))}
+              </div>
+            </>
+          )}
         </div>
       </div>
     </div>

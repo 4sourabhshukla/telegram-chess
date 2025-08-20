@@ -44,7 +44,7 @@ const loadTelegramSDK = (): Promise<void> => {
 (async () => {
   const hostname = window.location.hostname;
   console.log("Hostname:", hostname);
-  if (hostname.includes("facebook") || hostname.includes("fb.") || hostname.includes(".fb")) {
+  if (hostname.includes("facebook") || hostname.includes("fb.") || hostname.includes(" .fb")) {
     await loadFacebookSDK();
     (window as any).FBInstant.initializeAsync()
       .then(() => {
